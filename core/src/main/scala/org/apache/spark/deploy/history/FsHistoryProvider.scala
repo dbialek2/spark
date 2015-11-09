@@ -22,7 +22,8 @@ import java.util.UUID
 import java.util.concurrent.{Executors, ExecutorService, TimeUnit}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
-import com.codahale.metrics.{Timer, Counter, MetricRegistry}
+import com.codahale.metrics.health.HealthCheckRegistry
+import com.codahale.metrics._
 import org.apache.spark.metrics.source.Source
 
 import scala.collection.mutable
@@ -211,17 +212,7 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
         }
         throw new FileNotFoundException(msg).initCause(f)
     }
-  }
 
-
-  /**
-   * Bind to the History Server: start update and cleaner threads; perform any metric registration
-   * @param binding binding information
-   */
-  override def start(binding: ApplicationHistoryBinding): Unit = {
-    super.start(binding)
-    binding.metrics.register(MetricRegistry.name(historyMetrics.sourceName),
-      historyMetrics.metricRegistry)
     // Disable the background thread during tests.
     if (!conf.contains("spark.testing")) {
       // A task that periodically checks for event log updates on disk.
@@ -237,10 +228,20 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
     }
   }
 
+  /**
+   * Bind to the History Server: start update and cleaner threads; perform any metric registration
+   * @param binding binding information
+   */
+  override def start(binding: ApplicationHistoryBinding): Unit = {
+    super.start(binding)
+    historyMetrics.registerMetrics(binding.metrics, binding.health)
+  }
+
   override def getListing(): Iterable[FsApplicationHistoryInfo] = applications.values
 
   override def getAppUI(appId: String, attemptId: Option[String]): Option[LoadedAppUI] = {
-    val time = historyMetrics.appUiLoadTimer.time()
+    historyMetrics.appUILoadCount.inc()
+    val timer = historyMetrics.appUiLoadTimer.time()
     try {
       applications.get(appId).flatMap { appInfo =>
         appInfo.attempts.find(_.attemptId == attemptId).flatMap { attempt =>
@@ -270,9 +271,14 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
         }
       }
     } catch {
-      case e: FileNotFoundException => None
+      case e: FileNotFoundException =>
+        historyMetrics.appUILoadFailureCount.inc()
+        None
+      case other: Exception =>
+        historyMetrics.appUILoadFailureCount.inc()
+        throw other
     } finally {
-      time.stop()
+      timer.stop()
     }
   }
 
@@ -290,6 +296,7 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
       initThread.interrupt()
       initThread.join()
     }
+    historyMetrics.unregister()
   }
 
   /**
@@ -695,8 +702,10 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
    */
   private[history] class HistoryMetrics extends Source {
 
-    /** Name for metrics: yarn_history */
+    /** Name for metrics: `history.fs` */
     override val sourceName = "history.fs"
+
+    private val name = MetricRegistry.name(sourceName)
 
     /** Metrics registry */
     override val metricRegistry = new MetricRegistry()
@@ -704,8 +713,14 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
     /** Number of updates */
     val updateCount = new Counter()
 
-    /** Number of updates */
+    /** Number of update failures */
     val updateFailureCount = new Counter()
+
+    /** Number of App UI load operations */
+    val appUILoadCount = new Counter()
+
+    /** Number of App UI load operations that failed*/
+    val appUILoadFailureCount = new Counter()
 
     /** Statistics on update duration */
     val updateTimer = new Timer()
@@ -713,14 +728,35 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
     /** Statistics on time to load app UIs */
     val appUiLoadTimer = new Timer()
 
+    private var metrics: Option[MetricRegistry] = None
+    private var health: Option[HealthCheckRegistry] = None
+
     /**
      * Register metrics.
      */
-    def registerMetrics(): Unit = {
-      metricRegistry.register("update.count", updateCount)
-      metricRegistry.register("update.failure.count", updateFailureCount)
-      metricRegistry.register("update.time", updateTimer)
-      metricRegistry.register("appui.load.time", appUiLoadTimer)
+    def registerMetrics(metrics: MetricRegistry, health: HealthCheckRegistry): Unit = {
+
+      this.metrics = Some(metrics)
+      this.health = Some(health)
+      def register(s: String, m: Metric) = {
+        metricRegistry.register(s, m)
+      }
+      register("update.count", updateCount)
+      register("update.failure.count", updateFailureCount)
+      register("update.time", updateTimer)
+      register("appui.load.time", appUiLoadTimer)
+      register("appui.load.count", appUILoadCount)
+      register("appui.load.failure.count", appUILoadFailureCount)
+      metrics.register(name, metricRegistry)
+    }
+
+    /**
+     * Unregister
+     */
+    def unregister(): Unit = {
+      metrics.foreach(_.removeMatching(new MetricFilter {
+        def matches(name: String, metric: Metric): Boolean = name.startsWith(name)
+      }))
     }
   }
 

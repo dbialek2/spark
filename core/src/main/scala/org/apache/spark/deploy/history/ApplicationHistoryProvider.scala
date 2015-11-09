@@ -80,12 +80,17 @@ private[history] case class ApplicationHistoryBinding(metrics: MetricRegistry,
 
 private[history] abstract class ApplicationHistoryProvider {
 
+  private var binding: Option[ApplicationHistoryBinding] = None
+
   /**
    * Bind to the History Server: threads should be started here; exceptions may be raised
    * if the history provider cannot be started.
-   * @param binding binding information
+   * @param historyBinding binding information
    */
-  def start(binding: ApplicationHistoryBinding): Unit = {}
+  def start(historyBinding: ApplicationHistoryBinding): Unit = {
+    require(binding.isEmpty, "History provider already started")
+    binding = Some(historyBinding)
+  }
 
   /**
    * Returns a list of applications available for the history server to show.
