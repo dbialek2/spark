@@ -22,7 +22,8 @@ import java.util.UUID
 import java.util.concurrent.{Executors, ExecutorService, TimeUnit}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
-import com.codahale.metrics.health.HealthCheckRegistry
+import com.codahale.metrics.health.HealthCheck.Result
+import com.codahale.metrics.health.{HealthCheck, HealthCheckRegistry}
 import com.codahale.metrics._
 import org.apache.spark.metrics.source.Source
 
@@ -126,7 +127,11 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   // List of application logs to be deleted by event log cleaner.
   private var attemptsToClean = new mutable.ListBuffer[FsApplicationAttemptInfo]
 
-  private val historyMetrics = new HistoryMetrics()
+  /** filesystem metrics: visible for test access */
+  private[history] val metrics = new FsHistoryProviderMetrics(this)
+
+  /** filesystem health: visible for test access */
+  private[history] val health = new FsHistoryProviderHealth(this)
 
   /**
    * Return a runnable that performs the given operation on the event logs.
@@ -162,6 +167,18 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
       startSafeModeCheckThread(None)
     }
   }
+
+  /**
+   * Bind to the History Server: threads should be started here; exceptions may be raised
+   * if the history provider cannot be started.
+   * @param historyBinding binding information
+   * @return the metric and binding information for registration
+   */
+  override def start(historyBinding: ApplicationHistoryBinding) = {
+    super.start(historyBinding)
+    (Some(metrics), Some(health))
+  }
+
 
   private[history] def startSafeModeCheckThread(
       errorHandler: Option[Thread.UncaughtExceptionHandler]): Thread = {
@@ -228,57 +245,47 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
     }
   }
 
-  /**
-   * Bind to the History Server: start update and cleaner threads; perform any metric registration
-   * @param binding binding information
-   */
-  override def start(binding: ApplicationHistoryBinding): Unit = {
-    super.start(binding)
-    historyMetrics.registerMetrics(binding.metrics, binding.health)
-  }
-
   override def getListing(): Iterable[FsApplicationHistoryInfo] = applications.values
 
   override def getAppUI(appId: String, attemptId: Option[String]): Option[LoadedAppUI] = {
-    historyMetrics.appUILoadCount.inc()
-    val timer = historyMetrics.appUiLoadTimer.time()
-    try {
-      applications.get(appId).flatMap { appInfo =>
-        appInfo.attempts.find(_.attemptId == attemptId).flatMap { attempt =>
-          val replayBus = new ReplayListenerBus()
-          val ui = {
-            val conf = this.conf.clone()
-            val appSecManager = new SecurityManager(conf)
-            SparkUI.createHistoryUI(conf, replayBus, appSecManager, appInfo.name,
-              HistoryServer.getAttemptURI(appId, attempt.attemptId), attempt.startTime)
-            // Do not call ui.bind() to avoid creating a new server for each application
-          }
-          val appListener = new ApplicationEventListener()
-          replayBus.addListener(appListener)
-          val appAttemptInfo = replay(fs.getFileStatus(new Path(logDir, attempt.logPath)),
-            replayBus)
-          appAttemptInfo.map { info =>
-            val uiAclsEnabled = conf.getBoolean("spark.history.ui.acls.enable", false)
-            ui.getSecurityManager.setAcls(uiAclsEnabled)
-            // make sure to set admin acls before view acls so they are properly picked up
-            ui.getSecurityManager.setAdminAcls(appListener.adminAcls.getOrElse(""))
-            ui.getSecurityManager.setViewAcls(attempt.sparkUser,
-              appListener.viewAcls.getOrElse(""))
-            ui.getSecurityManager.setAdminAclsGroups(appListener.adminAclsGroups.getOrElse(""))
-            ui.getSecurityManager.setViewAclsGroups(appListener.viewAclsGroups.getOrElse(""))
-            LoadedAppUI(ui, updateProbe(appId, attemptId, attempt.fileSize))
+    metrics.appUILoadCount.inc()
+    time(metrics.appUiLoadTimer) {
+      try {
+        applications.get(appId).flatMap { appInfo =>
+          appInfo.attempts.find(_.attemptId == attemptId).flatMap { attempt =>
+            val replayBus = new ReplayListenerBus()
+            val ui = {
+              val conf = this.conf.clone()
+              val appSecManager = new SecurityManager(conf)
+              SparkUI.createHistoryUI(conf, replayBus, appSecManager, appInfo.name,
+                HistoryServer.getAttemptURI(appId, attempt.attemptId), attempt.startTime)
+              // Do not call ui.bind() to avoid creating a new server for each application
+            }
+            val appListener = new ApplicationEventListener()
+            replayBus.addListener(appListener)
+            val appAttemptInfo = replay(fs.getFileStatus(new Path(logDir, attempt.logPath)),
+              replayBus)
+            appAttemptInfo.map { info =>
+              val uiAclsEnabled = conf.getBoolean("spark.history.ui.acls.enable", false)
+              ui.getSecurityManager.setAcls(uiAclsEnabled)
+              // make sure to set admin acls before view acls so they are properly picked up
+              ui.getSecurityManager.setAdminAcls(appListener.adminAcls.getOrElse(""))
+              ui.getSecurityManager.setViewAcls(attempt.sparkUser,
+                appListener.viewAcls.getOrElse(""))
+              ui.getSecurityManager.setAdminAclsGroups(appListener.adminAclsGroups.getOrElse(""))
+              ui.getSecurityManager.setViewAclsGroups(appListener.viewAclsGroups.getOrElse(""))
+              LoadedAppUI(ui, updateProbe(appId, attemptId, attempt.fileSize))
+            }
           }
         }
+      } catch {
+        case e: FileNotFoundException =>
+          metrics.appUILoadNotFoundCount.inc()
+          None
+        case other: Exception =>
+          metrics.appUILoadFailureCount.inc()
+          throw other
       }
-    } catch {
-      case e: FileNotFoundException =>
-        historyMetrics.appUILoadFailureCount.inc()
-        None
-      case other: Exception =>
-        historyMetrics.appUILoadFailureCount.inc()
-        throw other
-    } finally {
-      timer.stop()
     }
   }
 
@@ -296,7 +303,6 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
       initThread.interrupt()
       initThread.join()
     }
-    historyMetrics.unregister()
   }
 
   /**
@@ -305,8 +311,8 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
    * applications that haven't been updated since last time the logs were checked.
    */
   private[history] def checkForLogs(): Unit = {
-    historyMetrics.updateCount.inc()
-    val updateContext = historyMetrics.updateTimer.time()
+    metrics.updateCount.inc()
+    time(metrics.updateTimer) {
     try {
       val newLastScanTime = getNewLastScanTime()
       logDebug(s"Scanning $logDir with lastScanTime==$lastScanTime")
@@ -336,7 +342,9 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
       }
       logInfos.map { file =>
           replayExecutor.submit(new Runnable {
-            override def run(): Unit = mergeApplicationListing(file)
+            override def run(): Unit = time(metrics.mergeApplicationListingTimer) {
+              mergeApplicationListing(file)
+            }
           })
         }
         .foreach { task =>
@@ -353,13 +361,11 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
           }
         }
 
-      lastScanTime = newLastScanTime
-    } catch {
-      case e: Exception => logError("Exception in checking for event log updates", e)
-        historyMetrics.updateFailureCount.inc()
-
-    } finally {
-      updateContext.stop()
+        lastScanTime = newLastScanTime
+      } catch {
+        case e: Exception => logError("Exception in checking for event log updates", e)
+          metrics.updateFailureCount.inc()
+      }
     }
   }
 
@@ -420,7 +426,6 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
       case None => throw new SparkException(s"Logs for $appId not found.")
     }
   }
-
 
   /**
    * Replay the log files in the list and merge the list of old applications with new ones
@@ -646,7 +651,8 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   }
 
   /**
-<<<<<<< 64515e5fbfd694d06fdbc28040fce7baf90a32aa
+   *<<<<<<< 917d73e85d63024d4953a9c1c5e4fde238625d75
+   *<<<<<<< 64515e5fbfd694d06fdbc28040fce7baf90a32aa
    * String description for diagnostics
    * @return a summary of the component state
    */
@@ -699,67 +705,106 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
 
   /**
    * Metrics integration: the various counters of activity
+   * Time a closure, returning its output.
+   * @param t timer
+   * @param f function
+   * @tparam T type of return value of time
+   * @return the result of the function.
    */
-  private[history] class HistoryMetrics extends Source {
-
-    /** Name for metrics: `history.fs` */
-    override val sourceName = "history.fs"
-
-    private val name = MetricRegistry.name(sourceName)
-
-    /** Metrics registry */
-    override val metricRegistry = new MetricRegistry()
-
-    /** Number of updates */
-    val updateCount = new Counter()
-
-    /** Number of update failures */
-    val updateFailureCount = new Counter()
-
-    /** Number of App UI load operations */
-    val appUILoadCount = new Counter()
-
-    /** Number of App UI load operations that failed */
-    val appUILoadFailureCount = new Counter()
-
-    /** Statistics on update duration */
-    val updateTimer = new Timer()
-
-    /** Statistics on time to load app UIs */
-    val appUiLoadTimer = new Timer()
-
-    private var metrics: Option[MetricRegistry] = None
-    private var health: Option[HealthCheckRegistry] = None
-
-    /**
-     * Register metrics.
-     */
-    def registerMetrics(metrics: MetricRegistry, health: HealthCheckRegistry): Unit = {
-
-      this.metrics = Some(metrics)
-      this.health = Some(health)
-      def register(s: String, m: Metric) = {
-        metricRegistry.register(s, m)
-      }
-      register("update.count", updateCount)
-      register("update.failure.count", updateFailureCount)
-      register("update.time", updateTimer)
-      register("appui.load.time", appUiLoadTimer)
-      register("appui.load.count", appUILoadCount)
-      register("appui.load.failure.count", appUILoadFailureCount)
-      metrics.register(name, metricRegistry)
+  private def time[T](t: Timer)(f: => T): T = {
+    val timeCtx = t.time()
+    try {
+      f
+    } finally {
+      timeCtx.close()
     }
+  }
+}
 
-    /**
-     * Unregister
-     */
-    def unregister(): Unit = {
-      metrics.foreach(_.removeMatching(new MetricFilter {
-        def matches(name: String, metric: Metric): Boolean = name.startsWith(name)
-      }))
+/**
+ * Health checks
+ */
+private[history] class FsHistoryProviderHealth(owner: FsHistoryProvider) extends HealthCheckSource {
+
+  override val sourceName = "history.fs"
+
+  private val name = MetricRegistry.name(sourceName)
+  val healthRegistry = new HealthCheckRegistry
+
+  val fileSystemLive = new HealthCheck {
+    override def check() = {
+      if (owner.isFsInSafeMode()) {
+        Result.unhealthy("Filesystem is in safe mode")
+      } else {
+        Result.healthy()
+      }
     }
   }
 
+  private val healthChecks = Seq(
+    ("filesystem.healthy", fileSystemLive)
+  )
+
+  healthChecks.foreach(elt => healthRegistry.register(elt._1, elt._2))
+
+}
+  /**
+ * Metrics integration: the various counters of activity
+ */
+private[history] class FsHistoryProviderMetrics(owner: FsHistoryProvider) extends Source {
+
+  override val sourceName = "history.fs"
+
+  private val name = MetricRegistry.name(sourceName)
+
+  /** Metrics registry */
+  override val metricRegistry = new MetricRegistry()
+
+  /** Number of updates */
+  val updateCount = new Counter()
+
+  /** Number of update failures */
+  val updateFailureCount = new Counter()
+
+  /** Number of App UI load operations */
+  val appUILoadCount = new Counter()
+
+  /** Number of App UI load operations that failed */
+  val appUILoadFailureCount = new Counter()
+
+  /** Number of App UI load operations that failed due to an unknown file */
+  val appUILoadNotFoundCount = new Counter()
+
+  /** Statistics on update duration */
+  val updateTimer = new Timer()
+
+  /** Statistics on time to load app UIs */
+  val appUiLoadTimer = new Timer()
+
+  /** Statistics on time to replay and merge listings */
+  val mergeApplicationListingTimer = new Timer()
+
+    private val counters = Seq(
+    ("update.count", updateCount),
+    ("update.failure.count", updateFailureCount),
+    ("appui.load.count", appUILoadCount),
+    ("appui.load.failure.count", appUILoadFailureCount))
+    ("appui.load.not-found.count", appUILoadNotFoundCount)
+
+  private val timers = Seq (
+    ("update.timer", updateTimer),
+    ("merge.application.listings.timer", mergeApplicationListingTimer),
+    ("appui.load.timer", appUiLoadTimer))
+
+  val allMetrics = counters ++ timers
+
+  allMetrics.foreach(elt => metricRegistry.register(elt._1, elt._2))
+
+  override def toString: String = {
+    def sb = new StringBuilder(counters.size * 20)
+    allMetrics.foreach(elt => sb.append(s" ${elt._1} = ${elt._2}\n"))
+    sb.toString()
+  }
 }
 
 private[history] object FsHistoryProvider {
