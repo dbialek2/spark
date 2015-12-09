@@ -22,8 +22,6 @@ import java.util.UUID
 import java.util.concurrent.{Executors, ExecutorService, TimeUnit}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
-import com.codahale.metrics.health.HealthCheck.Result
-import com.codahale.metrics.health.{HealthCheck, HealthCheckRegistry}
 import com.codahale.metrics._
 import org.apache.spark.metrics.source.Source
 
@@ -130,9 +128,6 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   /** filesystem metrics: visible for test access */
   private[history] val metrics = new FsHistoryProviderMetrics(this)
 
-  /** filesystem health: visible for test access */
-  private[history] val health = new FsHistoryProviderHealth(this)
-
   /**
    * Return a runnable that performs the given operation on the event logs.
    * This operation is expected to be executed periodically.
@@ -171,13 +166,14 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
   /**
    * Start the provider: threads should be started here; exceptions may be raised
    * if the history provider cannot be started.
-   * @return the metric and binding information for registration
+   * The base implementation contains a re-entrancy check and should
+   * be invoked first.
+   * @return the metric information for registration
    */
-  override def start(): (Option[Source], Option[HealthCheckSource]) = {
+  override def start(): Option[Source] = {
     super.start()
-    (Some(metrics), Some(health))
+    Some(metrics)
   }
-
 
   private[history] def startSafeModeCheckThread(
       errorHandler: Option[Thread.UncaughtExceptionHandler]): Thread = {
@@ -721,33 +717,6 @@ private[history] class FsHistoryProvider(conf: SparkConf, clock: Clock)
 }
 
 /**
- * Health checks
- */
-private[history] class FsHistoryProviderHealth(owner: FsHistoryProvider) extends HealthCheckSource {
-
-  override val sourceName = "history.fs"
-
-  private val name = MetricRegistry.name(sourceName)
-  val healthRegistry = new HealthCheckRegistry
-
-  val fileSystemLive = new HealthCheck {
-    override def check() = {
-      if (owner.isFsInSafeMode()) {
-        Result.unhealthy("Filesystem is in safe mode")
-      } else {
-        Result.healthy()
-      }
-    }
-  }
-
-  private val healthChecks = Seq(
-    ("filesystem.healthy", fileSystemLive)
-  )
-
-  healthChecks.foreach(elt => healthRegistry.register(elt._1, elt._2))
-
-}
-  /**
  * Metrics integration: the various counters of activity
  */
 private[history] class FsHistoryProviderMetrics(owner: FsHistoryProvider) extends Source {

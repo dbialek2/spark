@@ -23,12 +23,13 @@ import java.util.zip.ZipOutputStream
 import javax.servlet.http.{HttpServlet, HttpServletRequest, HttpServletResponse}
 
 import scala.util.control.NonFatal
-//import com.codahale.metrics.jvm.{ThreadStatesGaugeSet, GarbageCollectorMetricSet, MemoryUsageGaugeSet}
-import com.codahale.metrics.servlets.HealthCheckServlet
-import com.codahale.metrics.servlets.ThreadDumpServlet
+
+import com.codahale.metrics.MetricRegistry
 import com.google.common.cache._
 import org.eclipse.jetty.servlet.{ServletContextHandler, ServletHolder}
 
+import org.apache.spark.metrics.MetricsSystem
+import org.apache.spark.metrics.source.Source
 import org.apache.spark.{Logging, SecurityManager, SparkConf}
 import org.apache.spark.metrics.MetricsSystem
 import org.apache.spark.deploy.SparkHadoopUtil
@@ -67,7 +68,6 @@ class HistoryServer(
   private[history] val metricsSystem: MetricsSystem = MetricsSystem.createMetricsSystem("history",
     conf, securityManager)
   private[history] var metricsReg = metricsSystem.getMetricRegistry
-  private[history] var healthChecks: Option[HealthCheckSource] = _
 
   private val appLoader = new CacheLoader[String, SparkUI] {
     override def load(key: String): SparkUI = {
@@ -151,17 +151,7 @@ class HistoryServer(
       // hook up metrics
 
       // start the provider against the metrics binding
-      val (source, health) = provider.start()
-      val codahaleContext = new ServletContextHandler(null, HistoryServer.METRICS_PATH_PREFIX)
-      codahaleContext.addServlet(new ServletHolder(new ThreadDumpServlet()),
-        HistoryServer.THREADS_SUBPATH)
-      health.foreach { healthSource =>
-        codahaleContext.addServlet(
-          new ServletHolder(new HealthCheckServlet(healthSource.healthRegistry)),
-          HistoryServer.HEALTH_SUBPATH)
-      }
-      healthChecks = health
-      attachHandler(codahaleContext)
+      val source = provider.start()
       source.foreach(metricsSystem.registerSource)
       metricsSystem.registerSource(new HistoryMetrics(this))
       metricsSystem.start()
@@ -278,7 +268,14 @@ class HistoryServer(
   }
 }
 
-
+/**
+ * History system metrics independent of providers go in here
+ * @param owner owning instance
+ */
+private[history] class HistoryMetrics(val owner: HistoryServer) extends Source {
+  override val metricRegistry = new MetricRegistry()
+  override val sourceName = "history"
+}
 
 /**
  * The recommended way of starting and stopping a HistoryServer is through the scripts
@@ -295,9 +292,6 @@ object HistoryServer extends Logging {
   private val conf = new SparkConf
 
   val UI_PATH_PREFIX = "/history"
-  val METRICS_PATH_PREFIX = "/metrics"
-  val HEALTH_SUBPATH = "/health"
-  val THREADS_SUBPATH = "/threads"
 
   def main(argStrings: Array[String]): Unit = {
     Utils.initDaemon(log)
