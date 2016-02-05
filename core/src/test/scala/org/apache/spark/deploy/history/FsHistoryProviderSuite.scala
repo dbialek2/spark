@@ -140,13 +140,6 @@ class FsHistoryProviderSuite extends SparkFunSuite with BeforeAndAfter with Matc
     }
   }
 
-  private def createHistoryProvider(): FsHistoryProvider = {
-    val provider = new FsHistoryProvider(createTestConf())
-    val binding = new ApplicationHistoryBinding(metrics, health)
-    provider.start(binding)
-    provider
-  }
-
   test("SPARK-3697: ignore directories that cannot be read.") {
     val logFile1 = newLogFile("new1", None, inProgress = false)
     writeFile(logFile1, true, None,
