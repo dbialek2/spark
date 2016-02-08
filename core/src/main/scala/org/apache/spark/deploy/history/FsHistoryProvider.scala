@@ -22,11 +22,9 @@ import java.util.UUID
 import java.util.concurrent.{Executors, ExecutorService, TimeUnit}
 import java.util.zip.{ZipEntry, ZipOutputStream}
 
-import com.codahale.metrics._
-import org.apache.spark.metrics.source.Source
-
 import scala.collection.mutable
 
+import com.codahale.metrics._
 import com.google.common.io.ByteStreams
 import com.google.common.util.concurrent.{MoreExecutors, ThreadFactoryBuilder}
 import org.apache.hadoop.fs.{FileStatus, FileSystem, Path}
@@ -37,6 +35,7 @@ import org.apache.hadoop.security.AccessControlException
 import org.apache.spark.{SecurityManager, SparkConf, SparkException}
 import org.apache.spark.deploy.SparkHadoopUtil
 import org.apache.spark.internal.Logging
+import org.apache.spark.metrics.source.Source
 import org.apache.spark.scheduler._
 import org.apache.spark.ui.SparkUI
 import org.apache.spark.util.{Clock, SystemClock, ThreadUtils, Utils}
