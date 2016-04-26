@@ -119,7 +119,8 @@ class HistoryServer(
   /**
    * Initialize the history server.
    *
-   * This calls [[ApplicationHistoryProvider.start()]] to start the history provider.
+   * This starts a background thread that periodically synchronizes information displayed on
+   * this UI with the event logs in the provided base directory.
    */
   def initialize() {
     if (!initialized.getAndSet(true)) {
@@ -135,7 +136,6 @@ class HistoryServer(
       attachHandler(contextHandler)
 
       // hook up metrics
-
       provider.start().foreach(metricsSystem.registerSource)
       metricsSystem.registerSource(new HistoryMetrics(this))
       metricsSystem.registerSource(appCache.metrics)
@@ -151,8 +151,6 @@ class HistoryServer(
 
   /** Stop the server and close the history provider. */
   override def stop() {
-    super.stop()
-    provider.stop()
     try {
       super.stop()
     } finally {
