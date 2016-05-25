@@ -2524,6 +2524,9 @@
         <zookeeper.version>3.4.6</zookeeper.version>
         <curator.version>2.6.0</curator.version>
       </properties>
+      <modules>
+        <module>cloud</module>
+      </modules>
       <dependencyManagement>
         <dependencies>
           <dependency>
@@ -2589,9 +2592,6 @@
           </dependency>
         </dependencies>
       </dependencyManagement>
-      <modules>
-        <module>cloud</module>
-      </modules>
     </profile>
 
     <profile>
@@ -2602,6 +2602,9 @@
         <zookeeper.version>3.4.6</zookeeper.version>
         <curator.version>2.6.0</curator.version>
       </properties>
+      <modules>
+        <module>cloud</module>
+      </modules>
       <dependencyManagement>
         <dependencies>
           <dependency>
@@ -2668,9 +2671,6 @@
           </dependency>
         </dependencies>
       </dependencyManagement>
-      <modules>
-        <module>cloud</module>
-      </modules>
     </profile>
 
     <profile>
