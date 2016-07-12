@@ -285,6 +285,7 @@ within the module
 1. Give it a uniqe key using upper-and-lower-case letters and numerals only.
 1. Give it a name useful in test reports/bug reports
 1. Give it a meaningful description.
+1. Test against multiple infrastructure instances.
 
 
 ## Best practices for adding a new test suite
