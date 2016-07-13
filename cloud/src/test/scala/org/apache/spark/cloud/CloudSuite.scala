@@ -23,7 +23,7 @@ import java.net.URI
 import scala.collection.JavaConverters._
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileStatus, FileSystem, LocalFileSystem, Path, PathFilter}
+import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileStatus, FileSystem, LocalFileSystem, Path}
 import org.scalatest.{BeforeAndAfter, Matchers}
 
 import org.apache.spark.{LocalSparkContext, SparkConf, SparkFunSuite}
@@ -280,6 +280,8 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
    * @param sc spark configuration to alter
    */
   protected def addSuiteConfigurationOptions(sc: SparkConf): Unit = {
+    // commit with v2 algorithm
+    hconf(sc, "mapreduce.fileoutputcommitter.algorithm.version", "2")
   }
 
   /**

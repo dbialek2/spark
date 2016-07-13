@@ -59,6 +59,8 @@ object S3FileGenerator extends S3ExampleBase {
     logInfo(s"Dest file = $destURI; count=$count")
     // smaller block size to divide up work
     hconf(sparkConf, "fs.s3a.block.size", (1 * 1024 * 1024).toString)
+    // commit with v2 algorithm
+    hconf(sparkConf, "mapreduce.fileoutputcommitter.algorithm.version", "2")
     val sc = new SparkContext(sparkConf)
     try {
       val destFs = FileSystem.get(destURI, sc.hadoopConfiguration)
