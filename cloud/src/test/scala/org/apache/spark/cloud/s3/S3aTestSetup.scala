@@ -26,9 +26,10 @@ import org.apache.hadoop.fs.s3a.Constants
 import org.apache.spark.cloud.CloudSuite
 
 /**
- * Trait for S3A tests
+ * Trait for S3A tests.
  */
 private[cloud] trait S3aTestSetup extends CloudSuite {
+
 import org.apache.spark.cloud.s3.S3AConstants._
 
   def initFS(): FileSystem = {
@@ -61,7 +62,7 @@ import org.apache.spark.cloud.s3.S3AConstants._
   }
 
   /**
-   * Set up a configuration so that creatd filesystems will use the endpoint for the CSV file
+   * Set up a configuration so that created filesystems will use the endpoint for the CSV file.
    * @param config configuration to patch.
    */
   def enableCSVEndpoint(config: Configuration): Unit = {
@@ -73,24 +74,24 @@ import org.apache.spark.cloud.s3.S3AConstants._
    * Predicate to define whether or not there's a CSV file to work with.
    * @return true if the CSV test file is defined.
    */
-  protected def hasCSVTestFile = CSV_TESTFILE.isDefined
+  protected def hasCSVTestFile: Boolean = CSV_TESTFILE.isDefined
 
   /**
-   * What input policy to request (Hadoop 2.8+)
+   * What input policy to request (Hadoop 2.8+).
    * @return the IO type
    */
-  protected def inputPolicy = SEQUENTIAL_IO
+  protected def inputPolicy: String = SEQUENTIAL_IO
 
   /**
-   * Should the endpoint for the CSV data be used in the configuration
+   * Should the endpoint for the CSV data be used in the configuration?
    * @return false
    */
-  protected def useCSVEndpoint = false
+  protected def useCSVEndpoint: Boolean = false
 
   /**
    * Predicate which declares that the test and CSV endpoints are different.
    * Tests which want to read the CSV file and then write to their own FS are not
-   * going to work —the spark context only has a single endpoint option.
+   * going to work -the spark context only has a single endpoint option.
    * @param config configuration to probe
    * @return true if the endpoints are different
    */

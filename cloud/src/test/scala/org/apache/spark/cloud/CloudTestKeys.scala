@@ -49,7 +49,7 @@ import org.apache.hadoop.fs.s3a.Constants
 private[spark] trait CloudTestKeys {
 
   /**
-   * A system property which will be set on parallel test runs
+   * A system property which will be set on parallel test runs.
    */
   val SYSPROP_TEST_UNIQUE_FORK_ID = "test.unique.fork.id"
 
@@ -70,7 +70,7 @@ private[spark] trait CloudTestKeys {
   val CLOUD_TEST_UNSET_STRING = "(unset)"
 
   /**
-   * Prefix for scale tests
+   * Prefix for scale tests.
    */
   val SCALE_TEST = "scale.test."
 
@@ -104,7 +104,7 @@ private[spark] trait CloudTestKeys {
   val S3A_TESTS_ENABLED = "s3a.tests.enabled"
 
   /**
-   * A test bucket for S3.
+   * A test bucket for S3A.
    * Data in this bucket under the test directory will be deleted during test suite teardowns;
    */
   val S3A_TEST_URI = "s3a.test.uri"

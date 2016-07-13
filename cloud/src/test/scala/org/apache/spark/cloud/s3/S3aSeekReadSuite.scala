@@ -31,14 +31,14 @@ private[cloud] class S3aSeekReadSuite extends CloudSuite with S3aTestSetup {
 
   override def enabled: Boolean = super.enabled && hasCSVTestFile
 
-  override def inputPolicy = SEQUENTIAL_IO
+  override def inputPolicy: String = SEQUENTIAL_IO
 
   override protected def useCSVEndpoint: Boolean = true
 
   init()
 
   /**
-   * There's no attempt to set up the filesystem here, as this suite is read-only
+   * There's no attempt to set up the filesystem here, as this suite is read-only.
    */
   def init(): Unit = {
     setupFilesystemConfiguration(conf)
@@ -129,6 +129,5 @@ private[cloud] class S3aSeekReadSuite extends CloudSuite with S3aTestSetup {
     }
     logInfo(s"Statistics $stats")
   }
-
 
 }

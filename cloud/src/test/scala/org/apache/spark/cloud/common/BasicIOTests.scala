@@ -25,7 +25,7 @@ import org.apache.spark.SparkContext
 import org.apache.spark.cloud.CloudSuite
 
 /**
- * Basic IO Tests. The test path is cleaned up afterwards
+ * Basic IO Tests. The test path is cleaned up afterwards.
  */
 private[cloud] abstract class BasicIOTests extends CloudSuite {
 

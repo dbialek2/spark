@@ -20,7 +20,7 @@ package org.apache.spark.cloud.s3
 import org.apache.spark.cloud.common.BasicIOTests
 
 /**
- * Basic S3A IO Tests
+ * Basic S3A IO Tests.
  */
 private[cloud] class S3aIOSuite extends BasicIOTests with S3aTestSetup {
 

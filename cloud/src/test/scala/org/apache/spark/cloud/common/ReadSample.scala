@@ -20,7 +20,7 @@ package org.apache.spark.cloud.common
 import org.apache.spark.mllib.linalg.Vectors
 
 /**
- * A sample of a read
+ * A sample of a read operation.
  * @param started start time in nS
  * @param duration duration nS
  * @param blockSize size of block worked with

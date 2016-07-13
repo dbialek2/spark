@@ -63,7 +63,7 @@ private[cloud] trait S3ExampleBase extends TimeOperations {
   }
 
   /**
-   * Set a hadoop option in a spark configuration
+   * Set a hadoop option in a spark configuration.
    * @param sparkConf configuration to update
    * @param k key
    * @param v new value
@@ -73,7 +73,7 @@ private[cloud] trait S3ExampleBase extends TimeOperations {
   }
 
   /**
-   * Set a long hadoop option in a spark configuration
+   * Set a long hadoop option in a spark configuration.
    * @param sparkConf configuration to update
    * @param k key
    * @param v new value

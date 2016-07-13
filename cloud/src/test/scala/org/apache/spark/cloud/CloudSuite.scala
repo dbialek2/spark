@@ -84,12 +84,19 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   protected def isFilesystemDefined: Boolean = _filesystem.isDefined
 
   /**
-   * URI to the filesystem
+   * URI to the filesystem.
    * @return the filesystem URI
    */
   protected def filesystemURI = filesystem.getUri
 
+  /**
+   * Determine the scale factor for larger tests.
+   */
   private val scaleSizeFactor = conf.getInt(SCALE_TEST_SIZE_FACTOR, SCALE_TEST_SIZE_FACTOR_DEFAULT)
+
+  /**
+   * Determine the operation count for scale tests which iterate.
+   */
   private val scaleOperationCount = conf.getInt(SCALE_TEST_OPERATION_COUNT,
     SCALE_TEST_OPERATION_COUNT_DEFAULT)
 
@@ -104,7 +111,7 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
       .getCanonicalFile
 
   /**
-   * Take the test method keys propery, split to a set of keys
+   * Take the test method keys propery, split to a set of keys.
    * @return the keys
    */
   private def extractTestKeys(): Set[String] = {
@@ -159,7 +166,7 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   }
 
   /**
-   * A conditional test which is only executed when the suite is enabled
+   * A conditional test which is only executed when the suite is enabled.
    * @param testText description of the text
    * @param testFun function to evaluate
    */
@@ -206,7 +213,7 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   }
 
   /**
-   * Teardown-time cleanup; exceptions are logged and not forwarded
+   * Teardown-time cleanup; exceptions are logged and not forwarded.
    */
   protected def cleanFilesystemInTeardown(): Unit = {
     try {
@@ -303,9 +310,9 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   }
 
   /**
-   * Creat a new spark configuration under the test filesystem
+   * Creat a new spark configuration under the test filesystem.
    * @param path path
-   * @return
+   * @return a configuration using the default FS of the current configuration.
    */
   def newSparkConf(path: Path): SparkConf = {
     newSparkConf(path.getFileSystem(conf).getUri)
@@ -324,7 +331,7 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
 
 
   /**
-   * Get the file status of a path
+   * Get the file status of a path.
    * @param path path to query
    * @return the status
    * @throws FileNotFoundException if there is no entity there
@@ -334,7 +341,7 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   }
 
   /**
-   * Get the filesystem to a path; uses the current configuration
+   * Get the filesystem to a path; uses the current configuration.
    * @param path path to use
    * @return a (cached) filesystem.
    */

@@ -19,7 +19,7 @@ package org.apache.spark.cloud.s3
 
 /**
  * S3A constants. Different Hadoop versions have an incomplete set of these; keeping them
- * in source here ensures that there are no compile/link problems
+ * in source here ensures that there are no compile/link problems.
  */
 object S3AConstants {
   val ACCESS_KEY = "fs.s3a.access.key"

@@ -24,7 +24,7 @@ import org.apache.hadoop.fs.{FileSystem, Path}
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
- * Generate a file containing some numbers in the remote repository
+ * Generate a file containing some numbers in the remote repository.
  */
 object S3FileGenerator extends S3ExampleBase {
 
@@ -41,7 +41,7 @@ object S3FileGenerator extends S3ExampleBase {
   }
 
   /**
-   * Generate a file containing some numbers in the remote repository
+   * Generate a file containing some numbers in the remote repository.
    * @param sparkConf configuration to use
    * @param args argument array; the first argument must be the destination filename.
    * @return an exit code

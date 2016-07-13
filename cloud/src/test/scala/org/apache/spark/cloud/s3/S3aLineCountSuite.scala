@@ -17,8 +17,6 @@
 
 package org.apache.spark.cloud.s3
 
-import org.apache.hadoop.fs.{FileSystem, Path}
-
 import org.apache.spark.cloud.CloudSuite
 import org.apache.spark.cloud.s3.examples.S3LineCount
 
