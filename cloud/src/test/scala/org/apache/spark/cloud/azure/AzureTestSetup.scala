@@ -30,11 +30,19 @@ import org.apache.spark.cloud.CloudSuite
  */
 private[cloud] trait AzureTestSetup extends CloudSuite {
 
-  override def enabled: Boolean = super.enabled && conf.getBoolean(AZURE_TESTS_ENABLED, false)
+  override def enabled: Boolean =  {
+    super.enabled &&
+        azureFsOnClasspath &&
+        conf.getBoolean(AZURE_TESTS_ENABLED, false)
+  }
 
   def initFS(): FileSystem = {
     val uri = new URI(requiredOption(AZURE_TEST_URI))
     logDebug(s"Executing Azure tests against $uri")
     createFilesystem(uri)
+  }
+  
+  def azureFsOnClasspath: Boolean = {
+    null != getClass.getClassLoader.getResource("org/apache/hadoop/fs/azure/AzureException.class")
   }
 }
