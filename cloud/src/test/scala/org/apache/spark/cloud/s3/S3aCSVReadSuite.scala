@@ -83,8 +83,9 @@ private[cloud] class S3aCSVReadSuite extends CloudSuite with S3aTestSetup {
     "Read compressed CSV differentFS",
     """Use a compressed CSV from the non-default FS.
       | This verifies that the URIs are directing to the correct FS""".stripMargin) {
+    // have a default FS of the local filesystem
 
-    sc = new SparkContext("local", "test", newSparkConf())
+    sc = new SparkContext("local", "test", newSparkConf(new Path("file://")))
     val source = CSV_TESTFILE.get
     validateCSV(sc, source)
     logInfo(s"Filesystem statistics ${getFilesystem(source)}")
