@@ -35,11 +35,15 @@ Similarly, an RDD can be saved to an object store via `saveAsTextFile()`
 
 ```scala
 val numbers = sparkContext.parallelize(1 to 1000)
-numbers.textFile("swift://publicdataset/updates")
-numbers.textFile("wasb://landsat@example.blob.core.windows.net/updates")
+// save to Amazon S3 (or compatible implementation)
+numbers.saveAsTextFile("s3a://testbucket/counts")
+// save to an OpenStack Swift implementation
+numbers.saveAsTextFile("swift://testbucket.rackspace/counts")
+// Save to Azure Object store
+numbers.saveAsTextFile("wasb://testbucket@example.blob.core.windows.net/counts")
 ```
 
-While they can be used as the source and destination of data, they cannot be
+While Object stores can be used as the source and destination of data, they cannot be
 used as a direct replacement for a cluster-wide filesystem, such as HDFS.
 This is important to know, as the fact they are easy to work with can be misleading.
 
@@ -64,12 +68,13 @@ Directory rename and delete may be performed as a series of operations on the cl
 1. The time to rename may be `O(data)`. If the rename is done on the client, the time to rename
 each file will depend upon the bandwidth between client and the filesystem. The further away the client
 is, the longer the rename will take.
+1. Recursive directory listing can be very slow. This can slow down some parts of job submission
+and execution.
 
 Because of these behaviours, committing of work by renaming directories is neither efficient nor
 reliable. There is a special output committer for Parquet,
 the `org.apache.spark.sql.execution.datasources.parquet.DirectParquetOutputCommitter`
 which bypasses the rename phase.
-
 
 *Critical* speculative execution does not work against object
 stores which do not support atomic directory renames. Your output may get
@@ -78,14 +83,13 @@ corrupted.
 *Warning* even non-speculative execution is at risk of leaving the output of a job in an inconsistent
 state if a "Direct" output committer is used and executors fail.
 
-
 ### Data may not be written until the output stream's `close()` operation.
 
 Data to be written to the object store is usually buffered to a local file or stored in memory,
 until one of: there is enough data to create a partition in a multi-partitioned upload (where enabled),
 or when the output stream's `close()` operation is done.
 
-- If the process writing the data fails, nothing may have been written.
+- If the process writing the data fails, no data at all may have been saved to the object store.
 - Data may be visible in the object store until the entire output stream is complete
 - There may not be an entry in the object store for the file (even a 0 byte one) until
 that stage.
@@ -118,11 +122,9 @@ the call (or wrapper methods such as `FileSystem.exists(), isDirectory() or isFi
 Retain the object store as the final destination of persistent output, not as a replacement for
 HDFS.
 
-
 ## Object stores and their library dependencies
 
 The different object stores supported by Spark depend on specific Java libraries.
-
 
 ### Amazon S3 with s3a://
 
@@ -130,7 +132,7 @@ The "S3A" filesystem is a connector with Amazon S3, initially implemented in Had
 considered ready for production use in Hadoop 2.7.
 
 The implementation is `hadoop-aws`, which is included in the `spark-assembly` JAR when spark
-is built against Hadoop 2.6 or later.
+is built against Hadoop 2.7 or later.
 
 Dependencies: `amazon-aws-sdk` JAR (Hadoop 2.6 and 2.7); `amazon-s3-sdk` and `amazon-core-sdk`
 in Hadoop 2.8. *Warning*: The Amazon JARs have proven very brittle —the version of the Amazon
@@ -141,15 +143,17 @@ libraries must match that which the Hadoop binaries were built against.
 The "S3N" filesystem connector is a long-standing connector shipping with all versions of Hadoop 2.
 It uses the `jets3t` library to talk to HDFS; this must be on the classpath.
 
+Note that S3N is effectively unmaintained by the Hadoop team and, on Hadoop 2.7+ is deprecated in
+favor of S3A. Only critical security issues are being fixed on S3N.
+
 ### Microsoft Azure with wasb://
 
 The `wasb` filesystem connector is implemented in `hadoop-aws` and built into the `spark-assembly`
 JAR. It needs the `azure-storage` JAR on the classpath.
 
-It is only present if Spark was built against Hadoop 2.7 or later.
-
 ### Openstack Swift
 
+The `swift` filesystem connector is implemented in `hadoop-openstack`.
 
 ## Testing Cloud integration
 
