@@ -281,7 +281,7 @@ mvt -Phadoop-2.7  -Dcloud.test.configuration.file=../cloud.xml -Dhadoop.version=
 
 The combination of scalatest naming via the `wildcardSuites` property with the test-case specific
 key allows developers to easily focus on the failure or performance issues of a single test case
-within the module
+within the module.
 
 ## Best practices for adding a new test
 
