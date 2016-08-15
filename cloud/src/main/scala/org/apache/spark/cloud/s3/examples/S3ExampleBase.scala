@@ -55,7 +55,7 @@ private[cloud] trait S3ExampleBase extends TimeOperations {
       case e: Exception =>
         logError(s"Failed to execute operation: $e", e)
         // in case this is caused by classpath problems, dump it out
-        logInfo(s"Classpath =\n${System.getProperty("java.class.path")}")
+        logDebug(s"Classpath =\n${System.getProperty("java.class.path")}")
         exitCode = EXIT_ERROR
     }
     logInfo(s"Exit code = $exitCode")
