@@ -72,8 +72,8 @@ object S3LineCount extends S3ExampleBase {
     hconf(sparkConf, FAST_UPLOAD, "true")
     hconf(sparkConf, MULTIPART_SIZE, MIN_PERMITTED_MULTIPART_SIZE)
     hconf(sparkConf, MIN_MULTIPART_THRESHOLD, MIN_PERMITTED_MULTIPART_SIZE)
-    hconf(sparkConf, PURGE_EXISTING_MULTIPART, "true")
-    hconf(sparkConf, PURGE_EXISTING_MULTIPART_AGE, 10 * 60)
+    // hadoop 2.7.x will fail if trying to set the multipart purge policy on a read-only FS.
+    hconf(sparkConf, PURGE_EXISTING_MULTIPART, "false")
 
     // If there is no destination, switch to the anonymous provider.
     if (dest.isEmpty) {
