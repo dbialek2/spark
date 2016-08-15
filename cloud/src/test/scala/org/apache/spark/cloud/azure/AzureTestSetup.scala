@@ -31,9 +31,8 @@ import org.apache.spark.cloud.CloudSuite
 private[cloud] trait AzureTestSetup extends CloudSuite {
 
   override def enabled: Boolean =  {
-    super.enabled &&
-        azureFsOnClasspath &&
-        conf.getBoolean(AZURE_TESTS_ENABLED, false)
+    testConfiguration.exists(_.getBoolean(AZURE_TESTS_ENABLED, false)) &&
+        azureFsOnClasspath
   }
 
   def initFS(): FileSystem = {

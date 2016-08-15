@@ -57,9 +57,11 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   protected val testConfiguration = loadConfiguration()
 
   /**
-   * Accessor to the configuration, which mist be non-empty.
+   * Accessor to the configuration, which must be non-empty.
    */
-  protected val conf: Configuration = testConfiguration.get
+  protected def conf: Configuration = testConfiguration.getOrElse {
+    throw new NoSuchElementException("No cloud test configuration provided")
+  }
 
   /**
    * Map of keys defined on the command line.
@@ -92,12 +94,12 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   /**
    * Determine the scale factor for larger tests.
    */
-  private val scaleSizeFactor = conf.getInt(SCALE_TEST_SIZE_FACTOR, SCALE_TEST_SIZE_FACTOR_DEFAULT)
+  private lazy val scaleSizeFactor = conf.getInt(SCALE_TEST_SIZE_FACTOR, SCALE_TEST_SIZE_FACTOR_DEFAULT)
 
   /**
    * Determine the operation count for scale tests which iterate.
    */
-  private val scaleOperationCount = conf.getInt(SCALE_TEST_OPERATION_COUNT,
+  private lazy val scaleOperationCount = conf.getInt(SCALE_TEST_OPERATION_COUNT,
     SCALE_TEST_OPERATION_COUNT_DEFAULT)
 
   /**

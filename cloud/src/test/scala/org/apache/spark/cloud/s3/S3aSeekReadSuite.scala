@@ -41,7 +41,9 @@ private[cloud] class S3aSeekReadSuite extends CloudSuite with S3aTestSetup {
    * There's no attempt to set up the filesystem here, as this suite is read-only.
    */
   def init(): Unit = {
-    setupFilesystemConfiguration(conf)
+    if (enabled) {
+      setupFilesystemConfiguration(conf)
+    }
   }
 
   /**

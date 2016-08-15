@@ -56,7 +56,7 @@ import org.apache.spark.cloud.s3.S3AConstants._
     }
   }
 
-  val CSV_TESTFILE: Option[Path] = {
+  lazy val CSV_TESTFILE: Option[Path] = {
     val pathname = conf.get(S3A_CSVFILE_PATH, S3A_CSV_PATH_DEFAULT)
     if (!pathname.isEmpty) Some(new Path(pathname)) else None
   }

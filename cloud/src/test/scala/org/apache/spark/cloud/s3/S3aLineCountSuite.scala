@@ -30,7 +30,9 @@ private[cloud] class S3aLineCountSuite extends CloudSuite with S3aTestSetup {
   override def useCSVEndpoint: Boolean = true
 
   def init(): Unit = {
-    setupFilesystemConfiguration(conf)
+    if (enabled) {
+      setupFilesystemConfiguration(conf)
+    }
   }
 
   override def enabled: Boolean = super.enabled && hasCSVTestFile

@@ -44,7 +44,9 @@ private[cloud] class S3aCSVReadSuite extends CloudSuite with S3aTestSetup {
   init()
 
   def init(): Unit = {
-    setupFilesystemConfiguration(conf)
+    if (enabled) {
+      setupFilesystemConfiguration(conf)
+    }
   }
 
   ctest("CSVgz",
