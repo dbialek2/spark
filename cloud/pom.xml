@@ -27,7 +27,8 @@
   <artifactId>spark-cloud_2.11</artifactId>
   <packaging>jar</packaging>
   <name>Spark Project Cloud Integration</name>
-  <description>Contains support for cloud infrastructures, including the Hadoop JARs and
+  <description>
+    Contains support for cloud infrastructures, including the Hadoop JARs and
     transitive dependencies needed to interact with the infrastructures.
     When included in the spark-assembly JAR, the hadoop artifacts are included, but not
     any of the 3rd party libraries needed, such as those from Amazon (for AWS) and Microsoft (Azure).
@@ -46,6 +47,10 @@
 
     WARNING: the signatures of methods in aws-java-sdk/aws-java-sdk-s3 can change between versions:
     use the same version against which Hadoop was compiled.
+
+    The tests in this module are all driven
+
+    mvn test -Phadoop-2.7 --pl cloud -Dcloud.test.configuration.file=../cloud.xml -Dtest.method.keys=FileGenerator
   </description>
   <properties>
     <sbt.project.name>cloud</sbt.project.name>

@@ -57,7 +57,7 @@ they are still object stores, [and the difference is significant](http://hadoop.
 Many behaviors expected of a filesystem are emulated in the object store APIs, but only
 imperfectly.
 
-### Directory operations may not be atomic nor fast
+### Directory operations may be slow and not atomic
 
 Directory rename and delete may be performed as a series of operations on the client. Specifically,
 `delete(path, recursive=true)` may be implemented as "list the objects, delete them singly or in batches".
@@ -116,7 +116,7 @@ and block for responses. Each of these calls can be expensive. For maximum perfo
 1. Try to list filesystem paths in bulk.
 1. Know that `FileSystem.getFileStatus()` is expensive: cache the results rather than repeat
 the call (or wrapper methods such as `FileSystem.exists(), isDirectory() or isFile()`).
-1. Try to forward seek through a file, rather than backwards.
+1. Try to forward `seek()` through a file, rather than backwards.
 1. Avoid renaming files: This is slow and, if it fails, may fail leave the destination in a mess.
 1. Use the local filesystem as the destination of output which you intend to reload in follow-on work.
 Retain the object store as the final destination of persistent output, not as a replacement for
@@ -163,18 +163,38 @@ functionality integration and performance.
 ### Example Configuration for testing cloud data
 
 
-This is a configuration enabling the S3A and Azure test, referencing the secret credentials
-kept in another file.
+The test runs need a configuration file to declare the (secret) bindings to the cloud infrastructure.
+The configuration used is the Hadoop XML format, because it allows XInclude importing of
+secrets kept out of any source tree.
+
+The secret properties are defined using the Hadoop configuration option names, such as
+`fs.s3a.access.key` and `fs.s3a.secret.key`
+
+The file must be declared to the maven test run in the property `cloud.test.configuration.file`,
+which can be done in the command line
+
+```
+mvn test  --pl cloud -Dcloud.test.configuration.file=../cloud.xml
+```
+
+*Important*: keep all credentials out of SCM-managed repositories. Even if `.gitignore`
+or equivalent is used to exclude the file, they may unintenally get bundled and released
+with an application. It is safest to keep the `cloud.xml` files out of the tree, 
+and keep the authentication secrets themselves in a single location for all applications
+tested.
+
+Here is an example XML file `/home/developer/aws/cloud.xml` for running the S3A and Azure tests,
+referencing the secret credentials kept in the file `/home/hadoop/aws/auth-keys.xml`.
 
 ```xml
 <configuration>
   <include xmlns="http://www.w3.org/2001/XInclude"
-    href="file:///home/hadoop/.ssh/auth-keys.xml"/>
+    href="file:///home/developer/aws/auth-keys.xml"/>
 
   <property>
-    <name>aws.tests.enabled</name>
+    <name>s3a.tests.enabled</name>
     <value>true</value>
-    <description>Flag to enable AWS tests</description>
+    <description>Flag to enable S3A tests</description>
   </property>
 
   <property>
@@ -198,7 +218,7 @@ kept in another file.
 ```
 
 The configuration uses XInclude to pull in the secret credentials for the account
-from the user's `/home/hadoop/.ssh/auth-keys.xml` file:
+from the user's `/home/developer/.ssh/auth-keys.xml` file:
 
 ```xml
 <configuration>
@@ -220,20 +240,132 @@ from the user's `/home/hadoop/.ssh/auth-keys.xml` file:
 Splitting the secret values out of the other XML files allows for the other files to
 be managed via SCM and/or shared, with reduced risk.
 
+Note that the configuration file is used to define the entire Hadoop configuration used
+within the Spark Context created; all options for the specific test filesystems may be
+defined, such as endpoints and timeouts.
 
-## Large dataset input tests
+### S3A Options
 
-Some tests read from large datasets; some simple IO of a multi GB source file,
-followed by actual parsing operations of CSV files.
-
-### Amazon S3 test datasets
+<table class="table">
+  <tr><th style="width:21%">Option</th><th>Meaning</th><th>Default</th></tr>
+  <tr>
+    <td><code>s3a.tests.enabled</code></td>
+    <td>
+    Execute tests using the S3A filesystem.
+    </td>
+    <td><code>false</code></td>
+  </tr>
+  <tr>
+    <td><code>s3a.test.uri</code></td>
+    <td>
+    URI for S3A tests. Rquired if S3A tests are enabled.
+    </td>
+    <td><code></code></td>
+  </tr>
+  <tr>
+    <td><code>s3a.test.csvfile.path</code></td>
+    <td>
+    Path to a (possibly encrypted) CSV file used in linecount tests.
+    </td>
+    <td><code></code>s3a://landsat-pds/scene_list.gz</td>
+  </tr>
+  <tr>
+    <td><code>s3a.test.csvfile.endpoint</code></td>
+    <td>
+    Endpoint URI for CSV test file. This allows a different S3 instance
+    to be set for tests reading or writing data than against public CSV
+    source files.
+    Example: <code>s3.amazonaws.com</code>
+    </td>
+    <td><code>s3.amazonaws.com</code></td>
+  </tr>
+</table>
 
 When testing against Amazon S3, their [public datasets](https://aws.amazon.com/public-data-sets/)
-are used. Specifically
+are used. 
 
-* Large object input.
-* CSV parsing: `http://landsat-pds.s3.amazonaws.com/scene_list.gz`, which can be referenced
-as an S3A file as `s3a://landsat-pds/scene_list.gz`
+The gzipped CSV file `s3a://landsat-pds/scene_list.gz`` is used for testing line input and file IO; the default
+is a 20+ MB file hosted by Amazon. This file is public and free for anyone to
+access, making it convenient and cost effective. 
+
+The size and number of lines in this file increases over time; 
+the current size of the file can be measured through `curl`:
+
+```bash
+curl -I -X HEAD http://landsat-pds.s3.amazonaws.com/scene_list.gz
+```
+
+When testing against non-AWS infrastructure, an alternate file may be specified
+in the option `s3a.test.csvfile.path`; with its endpoint set to that of the
+S3 endpoint
+
+
+```xml
+  <property>
+    <name>s3a.test.csvfile.path</name>
+    <value>s3a://testdata/landsat.gz</value>
+  </property>
+  
+  <property>
+    <name>fs.s3a.endpoint</name>
+    <value>s3server.example.org</value>
+  </property>
+
+  <property>
+    <name>s3a.test.csvfile.endpoint</name>
+    <value>${fs.s3a.endpoint}</value>
+  </property>
+
+```
+
+
+When testing against an S3 instance which only supports the AWS V4 Authentication
+API, such as Frankfurt and Seoul, the `fs.s3a.endpoint` property must be set to that of
+the specific location. Because the public landsat dataset is hosted in AWS US-East, it must retain
+the original S3 endpoint. This is done by default, though it can also be set explicitly:
+
+
+```xml
+<property>
+  <name>fs.s3a.endpoint</name>
+  <value>s3.eu-central-1.amazonaws.com</value>
+</property>
+
+<property>
+  <name>s3a.test.csvfile.endpoint</name>
+  <value>s3.amazonaws.com</value>
+</property>
+```
+
+Finally, the CSV file tests can be skipped entirely by declaring the URL to be""
+
+
+```xml
+<property>
+  <name>s3a.test.csvfile.path</name>
+  <value></value>
+</property>
+```
+## Azure Test Options
+
+
+<table class="table">
+  <tr><th style="width:21%">Option</th><th>Meaning</th><th>Default</th></tr>
+  <tr>
+    <td><code>azure.tests.enabled</code></td>
+    <td>
+    Execute tests using the Azure WASB filesystem
+    </td>
+    <td><code>false</code></td>
+  </tr>
+  <tr>
+    <td><code>azure.test.uri</code></td>
+    <td>
+    URI for Azure WASB tests. Required if Azure tests are enabled.
+    </td>
+    <td><code></code></td>
+  </tr>
+</table>
 
 
 ## Running a single test case
@@ -266,22 +398,23 @@ This method can be exclusively executed by passing it to maven in the property `
 
 ```
 
-# running all (possibly subclassed) instantations of this method in scalatest suites.
-mvn test -Phadoop-2.7 -Dcloud.test.configuration.file=cloud.xml -Dtest.method.keys=NewHadoopAPI
+# running all (possibly subclassed) instantations of the test case NewHadoopAPI in scalatest suites.
+mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml -Dtest.method.keys=NewHadoopAPI
 
 # running the test purely in the S3A suites
-mvn test -Phadoop-2.7 -DwildcardSuites=org.apache.spark.cloud.s3.S3aIOSuite -Dcloud.test.configuration.file=cloud.xml
+mvn test --pl cloud -Phadoop-2.7 -DwildcardSuites=org.apache.spark.cloud.s3.S3aIOSuite -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml
 
 # running two named tests across all filesystems
-mvn test -Phadoop-2.7 -Dcloud.test.configuration.file=cloud.xml -Dtest.method.keys=NewHadoopAPI,CSVgz
+mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml -Dtest.method.keys=NewHadoopAPI,CSVgz
 
-# test run against Hadoop "branch-2"
-mvt -Phadoop-2.7  -Dcloud.test.configuration.file=../cloud.xml -Dhadoop.version=2.9.0-SNAPSHOT
 ```
 
 The combination of scalatest naming via the `wildcardSuites` property with the test-case specific
 key allows developers to easily focus on the failure or performance issues of a single test case
 within the module.
+
+(Note that an absolute path is used to refer to the test configuration file. If a relative
+path is supplied, it should be relative to the project base.)
 
 ## Best practices for adding a new test
 

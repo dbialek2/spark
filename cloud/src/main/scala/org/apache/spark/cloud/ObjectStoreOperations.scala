@@ -20,7 +20,7 @@ package org.apache.spark.cloud
 import scala.reflect.ClassTag
 
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, Path, PathFilter}
+import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, LocatedFileStatus, Path, PathFilter, RemoteIterator}
 import org.apache.hadoop.io.{NullWritable, Text}
 
 import org.apache.spark.internal.Logging
@@ -71,4 +71,27 @@ private[cloud] trait ObjectStoreOperations extends Logging {
       def accept(path: Path): Boolean = filterPredicate(path)
     }
   }
+
+  /**
+   * Take the output of a remote iterator and covert it to a scala sequence. Network
+   * IO may take place during the operation, and changes to a remote FS may result in
+   * a sequence which is not consistent with any single state of the FS.
+   * @param source source
+   * @tparam T type of source
+   * @return a sequence
+   */
+  def toSeq[T](source: RemoteIterator[T]): Seq[T] = {
+    new RemoteOutputIterator[T](source).toSeq
+  }
+}
+
+/**
+ * Iterator over remote output.
+ * @param source source iterator
+ * @tparam T type of response
+ */
+class RemoteOutputIterator[T](private val source: RemoteIterator[T]) extends Iterator[T] {
+  def hasNext: Boolean = source.hasNext
+
+  def next: T = source.next()
 }

@@ -54,21 +54,52 @@ private[cloud] class S3aFileGeneratorSuite extends CloudSuite with S3aTestSetup 
     val conf = newSparkConf()
     conf.setAppName("FileGenerator")
     val destDir = new Path(TestDir, "filegenerator")
-    val count = 10000
-    assert(0 === S3FileGenerator.action(conf, Array(destDir.toString, count.toString)))
+    val fileCount = 10
+    val rowCount = 10000
+    assert(0 === S3FileGenerator.action(conf,
+      Array(destDir.toString,
+        fileCount.toString,
+        rowCount.toString)))
     val status = filesystem.getFileStatus(destDir)
     assert(status.isDirectory, s"Not a directory: $status")
     val files = filesystem.listStatus(destDir,
       pathFilter(p => p.getName != "_SUCCESS"))
-    var size = 0L
+    var listStatusSize = 0L
     var filenames = ""
+    val listStatusFileCount = 0
     files.foreach { f =>
-      size += f.getLen
+      listStatusSize += f.getLen
       filenames = filenames + " " + f.getPath.getName
     }
-    logInfo(s"total size = $size bytes from ${files.length} files: $filenames")
-    assert(size > count,
-      s"Total file length ($size) less than expected $count")
+    logInfo(s"total size = $listStatusSize bytes from ${files.length} files: $filenames")
+    assert(listStatusSize > rowCount,
+      s"Total file length ($listStatusSize) less than expected $rowCount")
+
+    logInfo(s"FileSystem $filesystem")
+    // now do a recursive listFiles
+    val recursiveListResults = duration("listFiles(recursive)") {
+      filesystem.listFiles(destDir, true)
+    }
+    logInfo(s"FileSystem $filesystem")
+
+    val listing = duration("results to sequence") {
+      toSeq(recursiveListResults)
+    }
+    logInfo(s"FileSystem $filesystem")
+    var list2Size = 0L
+    var list2FileCount = 0
+    duration("scan result list") {
+      listing.foreach{s =>
+        list2FileCount += 1
+        list2Size += s.getLen
+      }
+    }
+
+    logInfo(s"FileSystem $filesystem")
+    assert(fileCount === list2FileCount)
+    assert(listStatusSize === list2Size)
+
+
   }
 
 }

@@ -40,6 +40,25 @@ private[cloud] trait S3ExampleBase extends TimeOperations {
   val EXIT_ERROR = -1
 
   /**
+   *
+   * Any exception raised is logged at error and then the exit code set to -1.
+   * @param args argument array
+   */
+  def main(args: Array[String]) {
+    execute(action, args)
+  }
+
+  /**
+   * Default action: returns 0
+   * @param sparkConf configuration to use
+   * @param args argument array; the first argument must be the destination filename.
+   * @return an exit code
+   */
+  def action(sparkConf: SparkConf, args: Array[String]): Int = {
+    0
+  }
+
+  /**
    * Execute an operation, using its return value as the System exit code.
    * Exceptions are caught, logged and an exit code of -1 generated.
    *

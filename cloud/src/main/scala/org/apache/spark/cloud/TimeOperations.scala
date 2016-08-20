@@ -56,7 +56,7 @@ private[cloud] trait TimeOperations extends Logging {
   /**
    * Measure the duration of an operation, log it.
    * @param testFun function to execute
-   * @return the result and the operation duration in nanos
+   * @return the result and the operation start time and duration in nanos
    */
   def duration2[T](testFun: => T): (T, Long, Long) = {
     val start = nanos()
@@ -72,6 +72,16 @@ private[cloud] trait TimeOperations extends Logging {
         logError(s"After ${toHuman(d)} ns: $ex", ex)
         throw ex
     }
+  }
+
+  /**
+   * Simple measurement of the duration of an operation
+   * @param testFun test function
+   * @return how long the operation took
+   */
+  def time(testFun: => Any): Long = {
+    val (_, _, dur) = duration2(testFun)
+    dur
   }
 
   /**

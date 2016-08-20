@@ -21,6 +21,7 @@ import java.net.URI
 
 import org.apache.hadoop.fs.{FileSystem, Path}
 
+import org.apache.spark.rdd.RDD
 import org.apache.spark.{SparkConf, SparkContext}
 
 /**
@@ -28,17 +29,8 @@ import org.apache.spark.{SparkConf, SparkContext}
  */
 object S3FileGenerator extends S3ExampleBase {
 
-  private val USAGE = "Usage S3FileGenerator <filename> [count]"
+  private val USAGE = "Usage S3FileGenerator <filename> <file-count> <row-count>"
   private val DEFAULT_COUNT: Integer = 1000
-
-  /**
-   *
-   * Any exception raised is logged at error and then the exit code set to -1.
-   * @param args argument array
-   */
-  def main(args: Array[String]) {
-    execute(action, args)
-  }
 
   /**
    * Generate a file containing some numbers in the remote repository.
@@ -46,31 +38,49 @@ object S3FileGenerator extends S3ExampleBase {
    * @param args argument array; the first argument must be the destination filename.
    * @return an exit code
    */
-  def action(sparkConf: SparkConf, args: Array[String]): Int = {
+  override def action(sparkConf: SparkConf, args: Array[String]): Int = {
     val l = args.length
-    if (l < 1 || l > 2 ) {
+    if (l != 3) {
       // wrong number of arguments
       return usage()
     }
     val dest = args(0)
-    val count = intArg(args, 1, DEFAULT_COUNT)
+    val fileCount = intArg(args, 1, 0)
+    val rowCount = intArg(args, 2, 0)
     val destURI = new URI(dest)
     val destPath = new Path(destURI)
-    logInfo(s"Dest file = $destURI; count=$count")
+    logInfo(s"Dest file = $destURI; count=$rowCount")
     // smaller block size to divide up work
     hconf(sparkConf, "fs.s3a.block.size", (1 * 1024 * 1024).toString)
     // commit with v2 algorithm
     hconf(sparkConf, "mapreduce.fileoutputcommitter.algorithm.version", "2")
     val sc = new SparkContext(sparkConf)
+    def eval[T](rdd: RDD[T]) = {
+      sc.runJob(rdd, (it: Iterator[T]) => {
+        while (it.hasNext) it.next()
+      })
+    }
     try {
       val destFs = FileSystem.get(destURI, sc.hadoopConfiguration)
       // create the parent directories or fail
-      duration(s"save $count values") {
-        destFs.delete(destPath, true)
-        destFs.mkdirs(destPath.getParent())
-        val numbers = sc.parallelize(1 to count)
-        numbers.saveAsTextFile(destPath.toUri.toString)
+      destFs.delete(destPath, true)
+      destFs.mkdirs(destPath.getParent())
+      val destPathSer = destPath.toUri
+      val filesRDD = sc.parallelize(1 to fileCount)
+      val filepathRDD = filesRDD.map(entry =>
+        new Path(new Path(destPathSer), "job-%04s".format(entry)).toUri
+      )
+      // now build them
+      val fileset = duration(s"save $rowCount values") {
+        filesRDD.map(entry => {
+          val dP = new Path(destPathSer)
+          val jobDest = new Path(destPath, "job-%04s".format(entry))
+          val numbers = sc.parallelize(1 to rowCount)
+          numbers.saveAsTextFile(destPathSer.toString)
+          jobDest
+        })
       }
+
       val status = destFs.getFileStatus(destPath)
       logInfo(s"Generated file $status")
       logInfo(s"File System = $destFs")
@@ -92,3 +102,5 @@ object S3FileGenerator extends S3ExampleBase {
     EXIT_USAGE
   }
 }
+
+

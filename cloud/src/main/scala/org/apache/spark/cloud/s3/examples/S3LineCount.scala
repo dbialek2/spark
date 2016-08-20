@@ -30,15 +30,6 @@ import org.apache.spark.cloud.s3.S3AConstants._
  */
 object S3LineCount extends S3ExampleBase {
 
-  /**
-   * Read a file and print out some details.
-   * Any exception raised is logged at error and then the exit code set to -1.
-   * @param args argument array; if empty then the default CSV path is used.
-   */
-  def main(args: Array[String]): Unit = {
-    execute(action, args)
-  }
-
   def usage(): Int = {
     logInfo("Usage: org.apache.spark.cloud.s3.examples.S3LineCount [<source>] [<dest>]")
     EXIT_USAGE
@@ -56,7 +47,7 @@ object S3LineCount extends S3ExampleBase {
    * @param args argument array; if empty then the default CSV path is used.
    * @return an exit code
    */
-  def action(sparkConf: SparkConf, args: Array[String]): Int = {
+  override def action(sparkConf: SparkConf, args: Array[String]): Int = {
     if (args.length > 2) {
       return usage()
     }
