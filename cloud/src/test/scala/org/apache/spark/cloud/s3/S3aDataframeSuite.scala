@@ -20,12 +20,12 @@ package org.apache.spark.cloud.s3
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.cloud.CloudSuite
-import org.apache.spark.cloud.s3.examples.S3FileGenerator
+import org.apache.spark.cloud.s3.examples.S3DataFrames
 
 /**
- * Test the `S3FileGenerator` entry point.
+ * Test the [S3DataFrames] logic
  */
-private[cloud] class S3aFileGeneratorSuite extends CloudSuite with S3aTestSetup {
+private[cloud] class S3aDataframeSuite extends CloudSuite with S3aTestSetup {
 
   init()
 
@@ -40,36 +40,18 @@ private[cloud] class S3aFileGeneratorSuite extends CloudSuite with S3aTestSetup 
     cleanFilesystemInTeardown()
   }
 
-  ctest("FileGeneratorUsage",
-    "S3A File Generator",
-    "Execute the S3FileGenerator example with a bad argument; expect a failure") {
+  ctest("S3ADataFrames",
+    "S3A Data Frames",
+    "Execute the S3A Data Frames example") {
     val conf = newSparkConf()
     conf.setAppName("FileGenerator")
-    assert(-2 === S3FileGenerator.action(conf, Seq()))
-  }
-
-  ctest("S3AFileGenerator",
-    "S3A File Generator",
-    "Execute the S3FileGenerator example") {
-    val conf = newSparkConf()
-    conf.setAppName("FileGenerator")
-    val destDir = new Path(TestDir, "filegenerator")
-    val startYear = 2015
-    val yearCount = 1
-    val fileCount = 2
+    val destDir = new Path(TestDir, "dataframes")
     val rowCount = 1000
 
-    assert(0 === S3FileGenerator.action(conf,
+    assert(0 === S3DataFrames.action(conf,
       Seq(destDir,
-        startYear,
-        yearCount,
-        fileCount,
         rowCount))
     )
-    val status = filesystem.getFileStatus(destDir)
-    assert(status.isDirectory, s"Not a directory: $status")
-
-    val totalExpectedFiles = yearCount * 12 * fileCount
 
     // do a recursive listFiles
     val recursiveListResults = duration("listFiles(recursive)") {
@@ -88,7 +70,6 @@ private[cloud] class S3aFileGeneratorSuite extends CloudSuite with S3aTestSetup 
     }
 
     logInfo(s"FileSystem $filesystem")
-    assert(totalExpectedFiles === recursivelyListedFiles)
   }
 
 }
