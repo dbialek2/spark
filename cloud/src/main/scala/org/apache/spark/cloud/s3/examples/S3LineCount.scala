@@ -61,7 +61,9 @@ object S3LineCount extends S3ExampleBase {
     val _1MB = 1024 * 1024
     // smaller block size to divide up work
     val blockSize = _1MB
-    hconf(sparkConf, FS_S3A_BLOCK_SIZE, blockSize)
+    applyS3AConfigOptions(sparkConf)
+
+    hconf(sparkConf, BLOCK_SIZE, blockSize)
     hconf(sparkConf, FAST_UPLOAD, "true")
     hconf(sparkConf, MULTIPART_SIZE, MIN_PERMITTED_MULTIPART_SIZE)
     hconf(sparkConf, MIN_MULTIPART_THRESHOLD, MIN_PERMITTED_MULTIPART_SIZE)

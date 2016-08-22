@@ -56,7 +56,7 @@ object S3AConstants {
   val SERVER_SIDE_ENCRYPTION_ALGORITHM = "fs.s3a.server-side-encryption-algorithm"
   val SERVER_SIDE_ENCRYPTION_AES256 = "AES256"
   val SIGNING_ALGORITHM = "fs.s3a.signing-algorithm"
-  val FS_S3A_BLOCK_SIZE = "fs.s3a.block.size"
+  val BLOCK_SIZE = "fs.s3a.block.size"
   val FS_S3A = "s3a"
   val USER_AGENT_PREFIX = "fs.s3a.user.agent.prefix"
   val READAHEAD_RANGE = "fs.s3a.readahead.range"

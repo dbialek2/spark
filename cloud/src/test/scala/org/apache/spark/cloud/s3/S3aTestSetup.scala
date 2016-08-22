@@ -48,7 +48,7 @@ import org.apache.spark.cloud.s3.S3AConstants._
   def setupFilesystemConfiguration(config: Configuration): Unit = {
     config.set(Constants.BUFFER_DIR, localTmpDir.getAbsolutePath)
     // a block size of 1MB
-    config.set(FS_S3A_BLOCK_SIZE, (1024 * 1024).toString)
+    config.set(BLOCK_SIZE, (1024 * 1024).toString)
     // the input policy
     config.set(INPUT_FADVISE, inputPolicy)
     if (useCSVEndpoint) {

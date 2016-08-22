@@ -18,6 +18,7 @@
 package org.apache.spark.cloud.s3.examples
 
 import org.apache.spark.SparkConf
+import org.apache.spark.cloud.s3.S3AConstants
 import org.apache.spark.cloud.utils.{ObjectStoreOperations, TimeOperations}
 
 /**
@@ -134,4 +135,18 @@ private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperat
     if (args.length > index) Some(args(index)) else None
   }
 
+  /**
+   * Set the standard S3A Hadoop options to be used in test/examples
+   * @param sparkConf spark configuration to patch
+   */
+  protected def applyS3AConfigOptions(sparkConf: SparkConf): Unit = {
+    // smaller block size to divide up work
+    hconf(sparkConf, S3AConstants.BLOCK_SIZE, 1 * 1024 * 1024)
+    hconf(sparkConf, S3AConstants.FAST_UPLOAD, "true")
+    // have a smaller buffer for more writers
+    hconf(sparkConf, S3AConstants.FAST_BUFFER_SIZE, 8192)
+    // commit with v2 algorithm
+    hconf(sparkConf, "mapreduce.fileoutputcommitter.algorithm.version", 2)
+    hconf(sparkConf, "mapreduce.fileoutputcommitter.cleanup.skipped", "true")
+  }
 }

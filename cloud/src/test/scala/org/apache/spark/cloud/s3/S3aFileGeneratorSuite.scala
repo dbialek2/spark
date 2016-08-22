@@ -56,7 +56,7 @@ private[cloud] class S3aFileGeneratorSuite extends CloudSuite with S3aTestSetup 
     val destDir = new Path(TestDir, "filegenerator")
     val startYear = 2015
     val yearCount = 1
-    val fileCount = 4
+    val fileCount = 2
     val rowCount = 1000
 
     assert(0 === S3FileGenerator.action(conf,
