@@ -15,7 +15,7 @@
  * limitations under the License.
  */
 
-package org.apache.spark.cloud
+package org.apache.spark.cloud.utils
 
 import java.util.Locale
 

@@ -26,6 +26,7 @@ import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileStatus, FileSystem, LocalFileSystem, Path}
 import org.scalatest.{BeforeAndAfter, Matchers}
 
+import org.apache.spark.cloud.utils.{ObjectStoreOperations, TimeOperations}
 import org.apache.spark.{LocalSparkContext, SparkConf, SparkFunSuite}
 
 /**

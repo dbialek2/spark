@@ -15,12 +15,16 @@
  * limitations under the License.
  */
 
-package org.apache.spark.cloud
+package org.apache.spark.cloud.utils
+
+import java.io.InputStream
 
 import scala.reflect.ClassTag
 
+import com.amazonaws.util.StringInputStream
+import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, LocatedFileStatus, Path, PathFilter, RemoteIterator}
+import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, Path, PathFilter, RemoteIterator}
 import org.apache.hadoop.io.{NullWritable, Text}
 
 import org.apache.spark.internal.Logging
@@ -82,6 +86,34 @@ private[cloud] trait ObjectStoreOperations extends Logging {
    */
   def toSeq[T](source: RemoteIterator[T]): Seq[T] = {
     new RemoteOutputIterator[T](source).toSeq
+  }
+
+  /**
+   * Put a string to the destination
+   * @param path path
+   * @param conf configuration to use when requesting the filesystem
+   * @param body string body
+   */
+  def put(path: Path, conf: Configuration, body: String): Unit = {
+    put(path, conf, new StringInputStream(body))
+  }
+
+  /**
+   * Put an input stream to the destination
+   * @param path path
+   * @param conf configuration to use when requesting the filesystem
+   * @param in input stream
+   */
+  def put(path: Path, conf: Configuration, in: InputStream): Unit = {
+    val fs = FileSystem.get(path.toUri, conf)
+    val out = fs.create(path, true)
+    try {
+      IOUtils.copy(in, out)
+    } finally {
+      IOUtils.closeQuietly(out)
+      IOUtils.closeQuietly(in)
+    }
+
   }
 }
 

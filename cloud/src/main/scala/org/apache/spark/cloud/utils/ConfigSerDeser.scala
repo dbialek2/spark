@@ -15,21 +15,36 @@
  * limitations under the License.
  */
 
-package org.apache.spark.cloud.s3.examples
-import org.apache.spark.SparkConf
+package org.apache.spark.cloud.utils
+
+import org.apache.hadoop.conf.Configuration
 
 /**
- * Populate a directory tree
+ * Class to make Hadoop configurations serializable; uses the
+ * `Writeable` operations to do this.
+ * Note: this only serializes the explicitly set values, not any set
+ * in site/default or other XML resources.
+ * @param conf
  */
-object S3DirectoryPopulator extends S3ExampleBase {
-  /**
-   * Default action: returns 0
-   * @param sparkConf configuration to use
-   * @param args argument array; the first argument must be the destination filename.
-   * @return an exit code
-   */
-  override def action(sparkConf: SparkConf,
-      args: Array[String]): Int = {
-    0
+class ConfigSerDeser(var conf: Configuration) extends Serializable {
+
+  def this() {
+    this(new Configuration())
+  }
+
+  def get(): Configuration = conf
+
+  private def writeObject (out: java.io.ObjectOutputStream): Unit = {
+    conf.write(out)
+  }
+
+  private def readObject (in: java.io.ObjectInputStream): Unit = {
+    conf = new Configuration()
+    conf.readFields(in)
+  }
+
+  private def readObjectNoData(): Unit = {
+    conf = new Configuration()
   }
 }
+

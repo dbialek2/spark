@@ -17,26 +17,26 @@
 
 package org.apache.spark.cloud.s3.examples
 
-import scala.reflect.ClassTag
-
-import org.apache.hadoop.conf.Configuration
-import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, Path}
-import org.apache.hadoop.io.{NullWritable, Text}
-
-import org.apache.spark.cloud.TimeOperations
 import org.apache.spark.SparkConf
-import org.apache.spark.rdd.RDD
+import org.apache.spark.cloud.utils.{ObjectStoreOperations, TimeOperations}
 
 /**
  * Base Class for examples working with S3.
  */
-private[cloud] trait S3ExampleBase extends TimeOperations {
+private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperations {
   /**
    * Default source of a public multi-MB CSV file.
    */
   val S3A_CSV_PATH_DEFAULT = "s3a://landsat-pds/scene_list.gz"
 
+  /**
+   * Exit code for a usage error.
+   */
   val EXIT_USAGE = -2
+
+  /**
+   * Exit code for a general purpose error
+   */
   val EXIT_ERROR = -1
 
   /**
@@ -48,14 +48,25 @@ private[cloud] trait S3ExampleBase extends TimeOperations {
     execute(action, args)
   }
 
+
   /**
-   * Default action: returns 0
+   * Action to execute.
    * @param sparkConf configuration to use
-   * @param args argument array; the first argument must be the destination filename.
+   * @param args argument array
    * @return an exit code
    */
   def action(sparkConf: SparkConf, args: Array[String]): Int = {
     0
+  }
+
+  /**
+   * Parameter overridden action operation; easy to use in tests.
+   * @param sparkConf configuration to use
+   * @param args list of arguments -they are converted to strings before use
+   * @return an exit code
+   */
+  def action(sparkConf: SparkConf, args: Seq[Any]): Int = {
+    action(sparkConf,  args.map(_.toString).toArray)
   }
 
   /**
@@ -78,7 +89,9 @@ private[cloud] trait S3ExampleBase extends TimeOperations {
         exitCode = EXIT_ERROR
     }
     logInfo(s"Exit code = $exitCode")
-    if (exitCode != 0) exit(exitCode)
+    if (exitCode != 0) {
+      exit(exitCode)
+    }
   }
 
   /**
@@ -121,33 +134,4 @@ private[cloud] trait S3ExampleBase extends TimeOperations {
     if (args.length > index) Some(args(index)) else None
   }
 
-  /**
-   * Save this RDD as a text file, using string representations of elements.
-   *
-   * There's a bit of convoluted-ness here, as this supports writing to any Hadoop FS,
-   * rather than the default one in the configuration ... this is addressed by creating a
-   * new configuration
-   */
-  def saveAsTextFile[T](rdd: RDD[T], path: Path, conf: Configuration): Unit = {
-    rdd.withScope {
-      val nullWritableClassTag = implicitly[ClassTag[NullWritable]]
-      val textClassTag = implicitly[ClassTag[Text]]
-      val r = rdd.mapPartitions { iter =>
-        val text = new Text()
-        iter.map { x =>
-          text.set(x.toString)
-          (NullWritable.get(), text)
-        }
-      }
-      val pathFS = FileSystem.get(path.toUri, conf)
-      val confWithTargetFS = new Configuration(conf)
-      confWithTargetFS.set(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY,
-        pathFS.getUri.toString)
-      val pairOps = RDD.rddToPairRDDFunctions(r)(nullWritableClassTag, textClassTag, null)
-      pairOps.saveAsNewAPIHadoopFile(path.toUri.toString,
-        pairOps.keyClass, pairOps.valueClass,
-        classOf[org.apache.hadoop.mapreduce.lib.output.TextOutputFormat[NullWritable, Text]],
-        confWithTargetFS)
-    }
-  }
 }

@@ -42,7 +42,7 @@ private[cloud] class S3aLineCountSuite extends CloudSuite with S3aTestSetup {
     "Execute the S3ALineCount example with the default values (i.e. no arguments)") {
     val sparkConf = newSparkConf(CSV_TESTFILE.get)
     sparkConf.setAppName("S3ALineCountDefaults")
-    assert(0 === S3LineCount.action(sparkConf, Array()))
+    assert(0 === S3LineCount.action(sparkConf, Seq()))
   }
 
 }

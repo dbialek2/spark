@@ -38,8 +38,10 @@ object S3LineCount extends S3ExampleBase {
   /**
    * Count all lines in a file in a remote object store.
    * This is scoped to be accessible for testing.
+   *
    * If there is no destination file, the configuration is patched to allow for S3A
    * anonymous access on Hadoop 2.8+.
+   *
    * The option to set the credential provider is not supported on Hadoop 2.6/2.7,
    * so the spark/cluster configuration must contain any credentials needed to
    * authenticate with AWS.
