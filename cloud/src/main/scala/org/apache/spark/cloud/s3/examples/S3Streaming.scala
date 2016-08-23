@@ -71,7 +71,6 @@ object S3Streaming extends S3ExampleBase {
       fs.mkdirs(streamDir)
       val sightings = sparkContext.longAccumulator("sightings")
 
-
       logInfo(s"Looking for text files under $streamGlobPath")
       val lines = ssc.textFileStream(streamGlobPath.toUri.toString)
       val rowCount = 100
@@ -84,7 +83,6 @@ object S3Streaming extends S3ExampleBase {
       // put a file into the generated directory
       put(new Path(generatedSubDir, "body1.txt"), hc, body)
 
-
       val matches= lines.filter(_.endsWith("3")).map(line => {
         sightings.add(1)
         line
@@ -96,7 +94,6 @@ object S3Streaming extends S3ExampleBase {
       Thread.sleep(2500)
       logInfo(s"Renaming $generatedSubDir to $renamedSubDir")
       fs.rename(generatedSubDir, renamedSubDir)
-
 
       ssc.awaitTerminationOrTimeout(10000)
       logInfo(s"Total number of lines ending in 3 sighted: ${sightings.value}")
