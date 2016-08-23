@@ -63,8 +63,7 @@ object S3DataFrames extends S3ExampleBase {
     val numRows = 1000
 
     try {
-
-      def save(df: DataFrame, dest:Path, format: String): Path = {
+      def save(df: DataFrame, dest: Path, format: String): Path = {
         df.write.format(format).save(dest.toString)
         dest
       }
@@ -101,7 +100,7 @@ object S3DataFrames extends S3ExampleBase {
       // convert a DF from one form to another
       def convert(convertBase: Path, source: Path, srcFormat: String, destFormat: String): Path = {
         val convertedDest = new Path(convertBase, s"$srcFormat-$destFormat")
-        duration(s"save $source to $convertedDest as $destFormat"){
+        duration(s"save $source to $convertedDest as $destFormat") {
           val loadDF = load(source, srcFormat)
           save(loadDF, convertedDest, destFormat)
         }
@@ -110,7 +109,6 @@ object S3DataFrames extends S3ExampleBase {
       }
 
       val fromOrc = formats.map(convert(new Path(dest, "convertFromOrc"), orc, "orc", _))
-
       val fromParquet = formats.map(
         convert(new Path(dest, "convertFromParquet"), parquet, "parquet", _))
 

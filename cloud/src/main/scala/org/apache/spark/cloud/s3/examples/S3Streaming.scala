@@ -30,7 +30,7 @@ import org.apache.spark.streaming._
 object S3Streaming extends S3ExampleBase {
 
   def usage(): Int = {
-    logInfo("Usage: org.apache.spark.cloud.s3.examples.S3DataFrames <dest> [<rows>]")
+    logInfo("Usage: org.apache.spark.cloud.s3.examples.S3Streaming <dest> [<rows>]")
     EXIT_USAGE
   }
 
@@ -52,9 +52,8 @@ object S3Streaming extends S3ExampleBase {
     val ssc = new StreamingContext(sparkConf, Milliseconds(1000))
 
     try {
-
-      // Create the FileInputDStream on the directory and use the
-      // stream to count words in new files created
+      // Create the FileInputDStream on the directory regexp and use the
+      // stream to look for a new file renamed into it
       val destDir = new Path(args(0))
       val streamDir = new Path(destDir, "streaming")
       val streamGlobPath = new Path(streamDir, "sub*")
@@ -83,7 +82,7 @@ object S3Streaming extends S3ExampleBase {
       // put a file into the generated directory
       put(new Path(generatedSubDir, "body1.txt"), hc, body)
 
-      val matches= lines.filter(_.endsWith("3")).map(line => {
+      val matches = lines.filter(_.endsWith("3")).map(line => {
         sightings.add(1)
         line
       })
