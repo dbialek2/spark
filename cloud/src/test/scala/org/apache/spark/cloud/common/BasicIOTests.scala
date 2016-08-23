@@ -23,6 +23,7 @@ import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, Path}
 
 import org.apache.spark.SparkContext
 import org.apache.spark.cloud.CloudSuite
+import org.apache.spark.deploy.SparkHadoopUtil
 
 /**
  * Basic IO Tests. The test path is cleaned up afterwards.
@@ -91,7 +92,19 @@ private[cloud] abstract class BasicIOTests extends CloudSuite {
     val numbers = sc.parallelize(1 to testEntryCount)
     val destFile = new Path(TestDir, "example1")
     saveAsTextFile(numbers, destFile, sc.hadoopConfiguration)
-    filesystem.getFileStatus(destFile)
-  }
+    val basePathStatus = filesystem.getFileStatus(destFile)
+    val hadoopUtils = new SparkHadoopUtil
+    val leafDirStatus = duration("listLeafDir") {
+      hadoopUtils.listLeafDirStatuses(filesystem, basePathStatus)
+    }
+    val leafFileStatus = duration("listLeafDir") {
+      hadoopUtils.listLeafStatuses(filesystem, basePathStatus)
+    }
 
+  }
+/*
+  ctest("ListLeafOperations", "Listing Operations",
+    "Use the SparkHadoopUtil.list operations to assess performance") {
+
+  }*/
 }

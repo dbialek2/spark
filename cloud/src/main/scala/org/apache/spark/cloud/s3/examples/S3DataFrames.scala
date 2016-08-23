@@ -17,8 +17,7 @@
 
 package org.apache.spark.cloud.s3.examples
 
-
-import org.apache.hadoop.fs.Path
+import org.apache.hadoop.fs.{FileSystem, Path}
 
 import org.apache.spark.SparkConf
 import org.apache.spark.sql.SparkSession
@@ -45,7 +44,7 @@ object S3DataFrames extends S3ExampleBase {
     val dest = new Path(args(0))
     val rowCount = intArg(args, 1, 1000)
     // compile time check that the spark-sql code is on the classpath
-    val forceBinding= WriterContainer.DATASOURCE_WRITEJOBUUID
+    val forceBinding = WriterContainer.DATASOURCE_WRITEJOBUUID
 
     val spark = SparkSession
         .builder
@@ -55,6 +54,7 @@ object S3DataFrames extends S3ExampleBase {
         .getOrCreate()
 
     import spark.implicits._
+    val hConf = spark.sparkContext.hadoopConfiguration
     val numRows = 1000
     // simple benchmark code from DataSetBenchmark
 
@@ -63,15 +63,19 @@ object S3DataFrames extends S3ExampleBase {
       val rdd = spark.sparkContext.range(1, numRows).map(l => Data(l, l.toString))
 
       def write(format: String) = {
-        val p = new Path(dest, format)
-        df.write.format(format).save(p.toString)
-        p
+        duration(s"write $forceBinding") {
+          val p = new Path(dest, format)
+          df.write.format(format).save(p.toString)
+          p
+        }
       }
       val orc = write("orc")
       val parquet = write("parquet")
       val json = write("json")
       val csv = write("csv")
 
+      val fs = FileSystem.get(dest.toUri, hConf)
+      logInfo(s"FS: $fs")
     } finally {
       spark.stop()
     }

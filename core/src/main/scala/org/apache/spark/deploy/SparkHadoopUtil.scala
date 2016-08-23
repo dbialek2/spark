@@ -205,12 +205,7 @@ class SparkHadoopUtil extends Logging {
    * that file.
    */
   def listLeafStatuses(fs: FileSystem, baseStatus: FileStatus): Seq[FileStatus] = {
-    def recurse(status: FileStatus): Seq[FileStatus] = {
-      val (directories, leaves) = fs.listStatus(status.getPath).partition(_.isDirectory)
-      leaves ++ directories.flatMap(f => listLeafStatuses(fs, f))
-    }
-
-    if (baseStatus.isDirectory) recurse(baseStatus) else Seq(baseStatus)
+    fs.listFiles(baseStatus.getPath, true)
   }
 
   def listLeafDirStatuses(fs: FileSystem, basePath: Path): Seq[FileStatus] = {

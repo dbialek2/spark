@@ -21,8 +21,8 @@ import java.net.URI
 
 import org.apache.hadoop.fs.{FileSystem, Path}
 
-import org.apache.spark.cloud.utils.ConfigSerDeser
 import org.apache.spark.{SparkConf, SparkContext}
+import org.apache.spark.cloud.utils.ConfigSerDeser
 
 /**
  * Generate a file containing some numbers in the remote repository.

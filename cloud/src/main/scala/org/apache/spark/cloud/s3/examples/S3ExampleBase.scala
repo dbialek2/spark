@@ -67,7 +67,7 @@ private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperat
    * @return an exit code
    */
   def action(sparkConf: SparkConf, args: Seq[Any]): Int = {
-    action(sparkConf,  args.map(_.toString).toArray)
+    action(sparkConf, args.map(_.toString).toArray)
   }
 
   /**
