@@ -102,9 +102,5 @@ private[cloud] abstract class BasicIOTests extends CloudSuite {
     }
 
   }
-/*
-  ctest("ListLeafOperations", "Listing Operations",
-    "Use the SparkHadoopUtil.list operations to assess performance") {
 
-  }*/
 }

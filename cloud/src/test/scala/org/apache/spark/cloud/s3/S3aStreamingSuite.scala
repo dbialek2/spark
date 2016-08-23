@@ -20,12 +20,12 @@ package org.apache.spark.cloud.s3
 import org.apache.hadoop.fs.Path
 
 import org.apache.spark.cloud.CloudSuite
-import org.apache.spark.cloud.s3.examples.S3DataFrames
+import org.apache.spark.cloud.s3.examples.{S3DataFrames, S3Streaming}
 
 /**
  * Test the [S3DataFrames] logic
  */
-private[cloud] class S3aDataframeSuite extends CloudSuite with S3aTestSetup {
+private[cloud] class S3aStreamingSuite extends CloudSuite with S3aTestSetup {
 
   init()
 
@@ -40,36 +40,17 @@ private[cloud] class S3aDataframeSuite extends CloudSuite with S3aTestSetup {
     cleanFilesystemInTeardown()
   }
 
-  ctest("S3ADataFrames",
-    "S3A Data Frames",
-    "Execute the S3A Data Frames example") {
+  ctest("S3AStreaming",
+    "S3A Streaming",
+    "Execute the S3A Streaming example") {
     val conf = newSparkConf()
-    conf.setAppName("S3ADataFrames")
-    val destDir = new Path(TestDir, "dataframes")
+    conf.setAppName("Streaming")
+    val destDir = new Path(TestDir, "streaming")
     val rowCount = 1000
 
-    assert(0 === S3DataFrames.action(conf,
-      Seq(destDir,
-        rowCount))
+    assert(0 === S3Streaming.action(conf, Seq(destDir, rowCount))
     )
 
-    // do a recursive listFiles
-    val recursiveListResults = duration("listFiles(recursive)") {
-      filesystem.listFiles(destDir, true)
-    }
-
-    val listing = toSeq(recursiveListResults)
-    var recursivelyListedFilesDataset = 0L
-    var recursivelyListedFiles = 0
-    duration("scan result list") {
-      listing.foreach{status =>
-        recursivelyListedFiles += 1
-        recursivelyListedFilesDataset += status.getLen
-        logInfo(s"${status.getPath}[${status.getLen}]")
-      }
-    }
-
-    logInfo(s"FileSystem $filesystem")
   }
 
 }
