@@ -40,17 +40,14 @@ private[cloud] class S3aStreamingSuite extends CloudSuite with S3aTestSetup {
     cleanFilesystemInTeardown()
   }
 
-  ctest("S3AStreaming",
-    "S3A Streaming",
-    "Execute the S3A Streaming example") {
+  ctest("S3AStreaming", "Execute the S3A Streaming example") {
     val conf = newSparkConf()
     conf.setAppName("Streaming")
-    val destDir = new Path(TestDir, "streaming")
+    val destDir = testPath(filesystem, "streaming")
     val rowCount = 1000
 
     assert(0 === S3Streaming.action(conf, Seq(destDir, rowCount))
     )
-
   }
 
 }

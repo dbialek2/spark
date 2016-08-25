@@ -40,12 +40,10 @@ private[cloud] class S3aDataframeSuite extends CloudSuite with S3aTestSetup {
     cleanFilesystemInTeardown()
   }
 
-  ctest("S3ADataFrames",
-    "S3A Data Frames",
-    "Execute the S3A Data Frames example") {
+  ctest("S3ADataFrames", "Execute the S3A Data Frames example") {
     val conf = newSparkConf()
     conf.setAppName("S3ADataFrames")
-    val destDir = new Path(TestDir, "dataframes")
+    val destDir = testPath(filesystem, "dataframes")
     val rowCount = 1000
 
     assert(0 === S3DataFrames.action(conf,

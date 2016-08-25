@@ -40,8 +40,10 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
     with ObjectStoreOperations {
 
   /**
-   *  Work under a test directory, so that cleanup works.
-   * ...some of the object stores don't implement `delete("/",true)`
+   * The test directory, for parallel test execution processes.
+   * The test path is derived from the property `"test.unique.fork.id"` if
+   * set. If not, it defaults to `/test`.
+   * This path does not contain any FS binding.
    */
   protected val TestDir: Path = {
     val testUniqueForkId: String = System.getProperty(SYSPROP_TEST_UNIQUE_FORK_ID)
@@ -63,11 +65,6 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   protected def conf: Configuration = testConfiguration.getOrElse {
     throw new NoSuchElementException("No cloud test configuration provided")
   }
-
-  /**
-   * Map of keys defined on the command line.
-   */
-  private val testKeyMap = extractTestKeys()
 
   /**
    * The filesystem.
@@ -114,70 +111,36 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
       .getCanonicalFile
 
   /**
-   * Take the test method keys propery, split to a set of keys.
-   * @return the keys
+   * Create a test path under the filesystem
+   * @param fs filesystem
+   * @param testname name of the test
+   * @return a fully qualified path under the filesystem
    */
-  private def extractTestKeys(): Set[String] = {
-    val property = System.getProperty(SYSPROP_TEST_METHOD_KEYS, "")
-    val splits = property.split(',')
-    var s: Set[String] = Set()
-    for (elem <- splits) {
-      val trimmed = elem.trim
-      if (!trimmed.isEmpty && trimmed != "null") {
-        s = s ++ Set(elem.trim)
-      }
-    }
-    if (s.nonEmpty) {
-      logInfo(s"Test keys: $s")
-    }
-    s
-  }
-
-  /**
-   * Is a specific test enabled?
-   * @param key test key
-   * @return true if there were no test keys named, or, if there were, that this key is in the list
-   */
-  def isTestEnabled(key: String): Boolean = {
-    testKeyMap.isEmpty || testKeyMap.contains(key)
+  protected def testPath(fs: FileSystem, testname: String): Path = {
+    fs.makeQualified(new Path(TestDir, "testname"))
   }
 
   /**
    * A conditional test which is only executed when the suite is enabled, the test key
    * is in the allowed list, and the `extraCondition` predicate holds.
-   * @param summary description of the text
-   * @param testFun function to evaluate
+   * @param name test name
    * @param detail detailed text for reports
    * @param extraCondition extra predicate which may be evaluated to decide if a test can run.
+   * @param testFun function to execute
    */
   protected def ctest(
-      key: String,
-      summary: String,
-      detail: String,
+      name: String,
+      detail: String = "",
       extraCondition: => Boolean = true)(testFun: => Unit): Unit = {
-    val testText = key + ": " + summary
-    if (enabled && isTestEnabled(key) && extraCondition) {
-      registerTest(testText) {
-        logInfo(testText + "\n" + detail + "\n-------------------------------------------")
+    if (enabled && extraCondition) {
+      registerTest(name) {
+        logInfo(s"$name\n$detail\n-------------------------------------------")
         testFun
       }
     } else {
-      registerIgnoredTest(testText) {
+      registerIgnoredTest(name) {
         testFun
       }
-    }
-  }
-
-  /**
-   * A conditional test which is only executed when the suite is enabled.
-   * @param testText description of the text
-   * @param testFun function to evaluate
-   */
-  protected def ctest(testText: String)(testFun: => Unit): Unit = {
-    if (enabled) {
-      registerTest(testText) {testFun}
-    } else {
-      registerIgnoredTest(testText) {testFun}
     }
   }
 
@@ -195,6 +158,8 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
 
   /**
    * Create a filesystem. This adds it as the `filesystem` field.
+   * A new instance is created for every test, so that different configurations
+   * can be used.
    * @param fsURI filesystem URI
    * @return the newly create FS.
    */
@@ -288,7 +253,7 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   }
 
   /**
-   * Create a spark conf, using the current filesystem as the URI for the default FS.
+   * Create a `SparkConf` instance, using the current filesystem as the URI for the default FS.
    * All options loaded from the test configuration XML file will be added as hadoop options.
    * @return the configuration
    */
@@ -298,33 +263,35 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   }
 
   /**
-   * Create a spark conf. All options loaded from the test configuration
+   * Create a `SparkConf` instance, setting the default filesystem to that of `fsuri`.
+   * All options loaded from the test configuration
    * XML file will be added as hadoop options.
-   * @param uri the URI of the default filesystem
+   * @param fsuri the URI of the default filesystem
    * @return the configuration
    */
-  def newSparkConf(uri: URI): SparkConf = {
+  def newSparkConf(fsuri: URI): SparkConf = {
     val sc = new SparkConf(false)
     addSuiteConfigurationOptions(sc)
     conf.asScala.foreach { e =>
       hconf(sc, e.getKey, e.getValue)
     }
-    hconf(sc, CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, uri.toString)
+    hconf(sc, CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY, fsuri.toString)
     sc.setMaster("local")
     sc
   }
 
   /**
-   * Creat a new spark configuration under the test filesystem.
+   * Creat a new spark configuration with the default FS that of the
+   * path parameter supplied.
    * @param path path
-   * @return a configuration using the default FS of the current configuration.
+   * @return a configuration with the default FS that of the path.
    */
   def newSparkConf(path: Path): SparkConf = {
     newSparkConf(path.getFileSystem(conf).getUri)
   }
 
   /**
-   * Set a Hadoop configuration option in a spark configuration
+   * Set a Hadoop configuration option in a spark configuration.
    * @param sc spark context
    * @param k configuration key
    * @param v configuration value
@@ -332,8 +299,6 @@ private[cloud] abstract class CloudSuite extends SparkFunSuite with CloudTestKey
   def hconf(sc: SparkConf, k: String, v: String): Unit = {
     sc.set("spark.hadoop." + k, v)
   }
-
-
 
   /**
    * Get the file status of a path.

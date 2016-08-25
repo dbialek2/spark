@@ -54,11 +54,6 @@ private[spark] trait CloudTestKeys {
   val SYSPROP_TEST_UNIQUE_FORK_ID = "test.unique.fork.id"
 
   /**
-   * Optional system property for test keys; if set, built into a map of test to run.
-   */
-  val SYSPROP_TEST_METHOD_KEYS = "test.method.keys"
-
-  /**
    * Name of the configuration file to load for test configuration.
    */
   val SYSPROP_CLOUD_TEST_CONFIGURATION_FILE = "cloud.test.configuration.file"

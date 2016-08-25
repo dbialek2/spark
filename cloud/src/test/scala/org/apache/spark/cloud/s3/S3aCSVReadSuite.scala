@@ -49,9 +49,7 @@ private[cloud] class S3aCSVReadSuite extends CloudSuite with S3aTestSetup {
     }
   }
 
-  ctest("CSVgz",
-    "Read compressed CSV",
-    "Read compressed CSV files through the spark context") {
+  ctest("CSVgz", "Read compressed CSV files through the spark context") {
     val source = CSV_TESTFILE.get
     sc = new SparkContext("local", "CSVgz", newSparkConf(source))
     val fs = getFilesystem(source)
@@ -82,9 +80,8 @@ private[cloud] class S3aCSVReadSuite extends CloudSuite with S3aTestSetup {
   }
 
   ctest("CSVdiffFS",
-    "Read compressed CSV differentFS",
     """Use a compressed CSV from the non-default FS.
-      | This verifies that the URIs are directing to the correct FS""".stripMargin) {
+     | This verifies that the URIs are directing to the correct FS""".stripMargin) {
     // have a default FS of the local filesystem
 
     sc = new SparkContext("local", "test", newSparkConf(new Path("file://")))
@@ -94,10 +91,8 @@ private[cloud] class S3aCSVReadSuite extends CloudSuite with S3aTestSetup {
   }
 
   ctest("ReadBytesReturned",
-    "Read Bytes",
     """Read in blocks and assess their size and duration.
-      | This is to identify buffering quirks.
-    """.stripMargin) {
+       | This is to identify buffering quirks. """.stripMargin) {
     val source = CSV_TESTFILE.get
     val fs = getFilesystem(source)
     val blockSize = 8192

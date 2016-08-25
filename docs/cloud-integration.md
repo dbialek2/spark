@@ -373,15 +373,16 @@ Finally, the CSV file tests can be skipped entirely by declaring the URL to be""
 Each cloud test takes time; it is convenient to be able to work on a single test case at a time
 when implementing or debugging a test.
 
-Every test has a *key* name which SHOULD BE unique within the specific test class; it MAY BE
-even across the entire module —though this does not hold for subclassed tests.
+Tests in a cloud suite must be conditional on the specific filesystem being available; every
+test suite must implement a method `enabled: Boolean` to determine this. The tests are then
+registered as "conditional tests", with a key, a detailed description (this is included in logs),
+and the actual function to execute.
 
-As an example, here is a test create and save a test data to an object store using the
-Hadoop filesystem API via the RDD function `saveAsNewAPIHadoopFile()`
+For example, here is the test `NewHadoopAPI`.
 
 ```scala
 
-  ctest("NewHadoopAPI", "New Hadoop API",
+  ctest("NewHadoopAPI", 
     "Use SparkContext.saveAsNewAPIHadoopFile() to save data to a file") {
     sc = new SparkContext("local", "test", newSparkConf())
     val numbers = sc.parallelize(1 to testEntryCount)
@@ -390,36 +391,37 @@ Hadoop filesystem API via the RDD function `saveAsNewAPIHadoopFile()`
   }
 ```
 
-The test is defined with a key, `NewHadoopAPI`, a name for the XML/HTML reports,
-`New Hadoop API`, and a description for logging (and perhaps future XML reports).
 
-
-This method can be exclusively executed by passing it to maven in the property `test.method.keys`
-
+It can be executed as part of the suite S3aIOSuite, by naming the suite in the `suite` maven property:
+```
+mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml -Dsuite=org.apache.spark.cloud.s3.S3aIOSuite
 ```
 
-# running all (possibly subclassed) instantations of the test case NewHadoopAPI in scalatest suites.
-mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml -Dtest.method.keys=NewHadoopAPI
-
-# running the test purely in the S3A suites
-mvn test --pl cloud -Phadoop-2.7 -DwildcardSuites=org.apache.spark.cloud.s3.S3aIOSuite -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml
-
-# running two named tests across all filesystems
-mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml -Dtest.method.keys=NewHadoopAPI,CSVgz
+The specific test can be explicitly run by including the key in the `suite` property, with a space after
+the suite name:
 
 ```
+mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml `-Dsuite=org.apache.spark.cloud.s3.S3aIOSuite NewHadoopAPI`
+```
 
-The combination of scalatest naming via the `wildcardSuites` property with the test-case specific
-key allows developers to easily focus on the failure or performance issues of a single test case
-within the module.
+This will run all tests in the `S3aIOSuite` suite whose name contains the string `NewHadoopAPI`;
+here just one test.
+
+To run all tests of a specific infrastructure, use the `wildcardSuites` property to list the package
+under which all test suites should be executed.
+
+```
+mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml `-DwildcardSuites=org.apache.spark.cloud.s3`
+```
+
 
 (Note that an absolute path is used to refer to the test configuration file. If a relative
 path is supplied, it should be relative to the project base.)
 
 ## Best practices for adding a new test
 
-1. Use the `ctest()` declaration of a test case conditional on the suite being enabled.
-1. Give it a uniqe key using upper-and-lower-case letters and numerals only.
+1. Use `ctest()` to define a test case conditional on the suite being enabled.
+1. Give it a unique name which can be used to explicitly execute it from the build via the `suite` property.
 1. Give it a name useful in test reports/bug reports
 1. Give it a meaningful description.
 1. Test against multiple infrastructure instances.
@@ -429,15 +431,15 @@ path is supplied, it should be relative to the project base.)
 
 1. Extend `CloudSuite`
 1. Have an `after {}` clause which cleans up all object stores —this keeps costs down.
-1. Support parallel operation.
 1. Do not assume that any test has exclusive access to any part of an object store other
 than the specific test directory. This is critical to support parallel test execution.
 1. Share setup costs across test cases, especially for slow directory/file setup operations.
+1. If extra conditions are needed before a test suite can be executed, override the `enabled` method
+to probe for the extra conditions being met.
 
+## Keeping Test costs low
 
-## Test costs
-
-S3 incurs charges for storage and for IO out of the datacenter where the data is stored.
+Object stores incur charges for storage and for IO out of the datacenter where the data is stored.
 
 The tests try to keep costs down by not working with large amounts of data, and by deleting
 all data on teardown. If a test run is aborted, data may be retained on the test filesystem.
@@ -446,4 +448,17 @@ While the charges should only be a small amount, period purges of the bucket wil
 Rerunning the tests to completion again should achieve this.
 
 The large dataset tests read in public data, so storage and bandwidth costs
-are incurred by Amazon themselves.
+are incurred by Amazon and other cloud storage providers themselves.
+
+### Keeping credentials safe
+
+It is critical that the credentials used to access object stores are kept secret. Not only can
+they be abused to run up compute charges, they can be used to read and alter private data.
+
+1. Keep the XML Configuration file with any secrets in a secure part of your filesystem.
+1. When using Hadoop 2.8+, consider using Hadoop credential files to store secrets, referencing
+these files in the relevant id/secret properties of the XML configuration file.
+1. Do not execute these tests as part of automated CI/Jenkins builds, unless the secrets are
+not senstitive -for example, they refer to in-house (test) object stores, authentication is
+done via IAM EC2 VM credentials, or the credentials are short-lived AWS STS-issued credentials
+with a lifespan of minutes and access only to transient test buckets.

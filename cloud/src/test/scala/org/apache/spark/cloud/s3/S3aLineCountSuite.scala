@@ -38,7 +38,6 @@ private[cloud] class S3aLineCountSuite extends CloudSuite with S3aTestSetup {
   override def enabled: Boolean = super.enabled && hasCSVTestFile
 
   ctest("S3ALineCountReadData",
-    "S3A Line count default values",
     "Execute the S3ALineCount example with the default values (i.e. no arguments)") {
     val sparkConf = newSparkConf(CSV_TESTFILE.get)
     sparkConf.setAppName("S3ALineCountDefaults")

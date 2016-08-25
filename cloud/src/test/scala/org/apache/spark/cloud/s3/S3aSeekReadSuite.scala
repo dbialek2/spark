@@ -61,18 +61,17 @@ private[cloud] class S3aSeekReadSuite extends CloudSuite with S3aTestSetup {
   }
 
   ctest("SeekReadFully",
-    "Cost of seek and ReadFully",
-    """Assess cost of seek and read operations.
-      | When moving the cursor in an input stream, an HTTP connection may be closed and
-      | then re-opened. This can be very expensive; tactics like streaming forwards instead
-      | of seeking, and/or postponing movement until the following read ('lazy seek') try
-      | to address this. Logging these operation times helps track performance.
-      | This test also tries to catch out a regression, where a `close()` operation
-      | is implemented through reading through the entire input stream. This is exhibited
-      | in the time to `close()` while at offset 0 being `O(len(file))`.
-      |
-      | Note also the cost of `readFully()`; this method call is common inside libraries
-      | like Orc and Parquet.""".stripMargin) {
+      """Assess cost of seek and read operations.
+        | When moving the cursor in an input stream, an HTTP connection may be closed and
+        | then re-opened. This can be very expensive; tactics like streaming forwards instead
+        | of seeking, and/or postponing movement until the following read ('lazy seek') try
+        | to address this. Logging these operation times helps track performance.
+        | This test also tries to catch out a regression, where a `close()` operation
+        | is implemented through reading through the entire input stream. This is exhibited
+        | in the time to `close()` while at offset 0 being `O(len(file))`.
+        |
+        | Note also the cost of `readFully()`; this method call is common inside libraries
+        | like Orc and Parquet.""".stripMargin) {
     val (source, fs) = getCSVSourceAndFileSystem()
     FileSystem.clearStatistics
     val stats = FileSystem.getStatistics("s3a", fs.getClass)

@@ -43,33 +43,28 @@ private[cloud] class S3aLineCountWritebackSuite extends CloudSuite with S3aTestS
   }
 
   ctest("S3ALineCountWriteback",
-    "S3A Line count with the results written back",
-    "Execute the S3ALineCount example with the results written back to" +
-        " the test filesystem.") {
-    if (!testAndCSVEndpointsDifferent(conf)) {
-      val sourceFile = CSV_TESTFILE.get
-      val sourceFS = FileSystem.get(sourceFile.toUri, conf)
-      val sourceInfo = sourceFS.getFileStatus(sourceFile)
-      val sparkConf = newSparkConf()
-      sparkConf.setAppName("S3LineCount")
-      val destDir = filesystem.makeQualified(new Path(TestDir, "s3alinecount"))
-      assert(0 === S3LineCount.action(sparkConf,
-        Array(sourceFile.toString, destDir.toString)))
-      val status = filesystem.getFileStatus(destDir)
-      assert(status.isDirectory, s"Not a directory: $status")
-      val files = filesystem.listStatus(destDir,
-        pathFilter(p => p.getName != "_SUCCESS"))
-      var size = 0L
-      var filenames = ""
-      files.foreach { f =>
-        size += f.getLen
-        filenames = filenames + " " + f.getPath.getName
-      }
-      logInfo(s"total size = $size bytes from ${files.length} files: $filenames")
-      assert (size >= sourceInfo.getLen, s"output data $size smaller than source $sourceFile")
-    } else {
-      logInfo("Skipping a test which will not work across different S3 endpoints")
+    "Execute the S3ALineCount example with the results written back to the test filesystem.",
+    !testAndCSVEndpointsDifferent(conf)) {
+    val sourceFile = CSV_TESTFILE.get
+    val sourceFS = FileSystem.get(sourceFile.toUri, conf)
+    val sourceInfo = sourceFS.getFileStatus(sourceFile)
+    val sparkConf = newSparkConf()
+    sparkConf.setAppName("S3LineCount")
+    val destDir = testPath(filesystem, "s3alinecount")
+    assert(0 === S3LineCount.action(sparkConf,
+      Array(sourceFile.toString, destDir.toString)))
+    val status = filesystem.getFileStatus(destDir)
+    assert(status.isDirectory, s"Not a directory: $status")
+    val files = filesystem.listStatus(destDir,
+      pathFilter(p => p.getName != "_SUCCESS"))
+    var size = 0L
+    var filenames = ""
+    files.foreach { f =>
+      size += f.getLen
+      filenames = filenames + " " + f.getPath.getName
     }
+    logInfo(s"total size = $size bytes from ${files.length} files: $filenames")
+    assert(size >= sourceInfo.getLen, s"output data $size smaller than source $sourceFile")
   }
 
 }

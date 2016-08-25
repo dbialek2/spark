@@ -40,20 +40,18 @@ private[cloud] class S3aFileGeneratorSuite extends CloudSuite with S3aTestSetup 
     cleanFilesystemInTeardown()
   }
 
-  ctest("FileGeneratorUsage",
-    "S3A File Generator",
+  ctest(
+    "FileGeneratorUsage",
     "Execute the S3FileGenerator example with a bad argument; expect a failure") {
     val conf = newSparkConf()
     conf.setAppName("FileGenerator")
     assert(-2 === S3FileGenerator.action(conf, Seq()))
   }
 
-  ctest("S3AFileGenerator",
-    "S3A File Generator",
-    "Execute the S3FileGenerator example") {
+  ctest("S3AFileGenerator", "Execute the S3FileGenerator example") {
     val conf = newSparkConf()
     conf.setAppName("FileGenerator")
-    val destDir = new Path(TestDir, "filegenerator")
+    val destDir = testPath(filesystem, "filegenerator")
     val startYear = 2015
     val yearCount = 1
     val fileCount = 2
@@ -80,7 +78,7 @@ private[cloud] class S3aFileGeneratorSuite extends CloudSuite with S3aTestSetup 
     var recursivelyListedFilesDataset = 0L
     var recursivelyListedFiles = 0
     duration("scan result list") {
-      listing.foreach{status =>
+      listing.foreach { status =>
         recursivelyListedFiles += 1
         recursivelyListedFilesDataset += status.getLen
         logInfo(s"${status.getPath}[${status.getLen}]")

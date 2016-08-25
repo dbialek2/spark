@@ -34,10 +34,8 @@ private[cloud] abstract class BasicIOTests extends CloudSuite {
     cleanFilesystemInTeardown()
   }
 
-  ctest("mkdirs",
-    "Create, delete directory",
-    "Simple test of directory operations") {
-    val path = TestDir
+  ctest("mkdirs", "Simple test of directory operations") {
+    val path = testPath(filesystem, "mkdirs")
     filesystem.mkdirs(path)
     val st = stat(path)
     logInfo(s"Created filesystem entry $path: $st")
@@ -52,7 +50,6 @@ private[cloud] abstract class BasicIOTests extends CloudSuite {
   }
 
   ctest("FileOutput",
-    "Generate then read data using the File Output Committer",
     """Use the classic File Output Committer to commit work to S3A.
       | This committer has race and failure conditions, with the commit being O(bytes)
       | and non-atomic.
@@ -62,7 +59,7 @@ private[cloud] abstract class BasicIOTests extends CloudSuite {
     assert(filesystemURI.toString === conf.get(CommonConfigurationKeysPublic.FS_DEFAULT_NAME_KEY))
     val entryCount = testEntryCount
     val numbers = sc.parallelize(1 to entryCount)
-    val example1 = new Path(TestDir, "example1")
+    val example1 = testPath(filesystem, "example1")
     numbers.saveAsTextFile(example1.toString)
     val st = stat(example1)
     assert(st.isDirectory, s"Not a dir: $st")
@@ -85,12 +82,10 @@ private[cloud] abstract class BasicIOTests extends CloudSuite {
     logInfo(s"Filesystem statistics ${filesystem}")
   }
 
-  ctest("NewHadoopAPI",
-    "New Hadoop API",
-    "Use SparkContext.saveAsNewAPIHadoopFile() to save data to a file") {
+  ctest("NewHadoopAPI", "Use SparkContext.saveAsNewAPIHadoopFile() to save data to a file") {
     sc = new SparkContext("local", "test", newSparkConf())
     val numbers = sc.parallelize(1 to testEntryCount)
-    val destFile = new Path(TestDir, "example1")
+    val destFile = testPath(filesystem, "example1")
     saveAsTextFile(numbers, destFile, sc.hadoopConfiguration)
     val basePathStatus = filesystem.getFileStatus(destFile)
     val hadoopUtils = new SparkHadoopUtil
@@ -100,7 +95,6 @@ private[cloud] abstract class BasicIOTests extends CloudSuite {
     val leafFileStatus = duration("listLeafDir") {
       hadoopUtils.listLeafStatuses(filesystem, basePathStatus)
     }
-
   }
 
 }
