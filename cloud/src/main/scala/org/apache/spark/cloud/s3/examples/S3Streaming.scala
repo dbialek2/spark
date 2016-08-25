@@ -80,7 +80,10 @@ object S3Streaming extends S3ExampleBase {
       val body = builder.toString
 
       // put a file into the generated directory
-      put(new Path(generatedSubDir, "body1.txt"), hc, body)
+      val textPath = new Path(generatedSubDir, "body1.txt")
+      duration(s"upload $textPath") {
+        put(textPath, hc, body)
+      }
 
       val matches = lines.filter(_.endsWith("3")).map(line => {
         sightings.add(1)
@@ -91,19 +94,45 @@ object S3Streaming extends S3ExampleBase {
       ssc.start()
 
       Thread.sleep(2500)
-      logInfo(s"Renaming $generatedSubDir to $renamedSubDir")
-      fs.rename(generatedSubDir, renamedSubDir)
+      duration(s"rename $generatedSubDir to $renamedSubDir") {
+        fs.rename(generatedSubDir, renamedSubDir)
+      }
 
       ssc.awaitTerminationOrTimeout(10000)
       logInfo(s"Total number of lines ending in 3 sighted: ${sightings.value}")
       logInfo(s"Total number of lines ending in 3 sighted: ${sightings.value}")
       logInfo(s"FileSystem local stats: $fs")
 
+      val expected = rowCount/10
       // require at least one line
-      if (sightings.isZero) 1 else 0
+      if (sightings.value != expected) {
+        logError(s"Expected $expected matches, saw ${sightings.value}")
+        1
+      } else {
+        0
+      }
 
     } finally {
       ssc.stop(true)
     }
   }
+
+  /**
+   * This is never executed; it's just here as the source of the example in the
+   * documentation.
+   */
+  def streamingExample(): Unit = {
+    val sparkConf = new SparkConf()
+    val ssc = new StreamingContext(sparkConf, Milliseconds(1000))
+    try {
+      val lines = ssc.textFileStream("s3a://testbucket/incoming")
+      val matches = lines.filter(_.endsWith("3"))
+      matches.print()
+      ssc.start()
+      ssc.awaitTermination()
+    } finally {
+      ssc.stop(true)
+    }
+  }
 }
+

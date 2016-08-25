@@ -73,7 +73,7 @@ object S3DataFrames extends S3ExampleBase {
       val sc = spark.sparkContext
       val hConf = sc.hadoopConfiguration
       // simple benchmark code from DataSetBenchmark
-      val df = spark.range(0, numRows).select($"id".as("l"), $"id".cast(StringType).as("s"))
+      val sourceData = spark.range(0, numRows).select($"id".as("l"), $"id".cast(StringType).as("s"))
 
       val generatedBase = new Path(dest, "generated")
       // formats to generate
@@ -82,7 +82,7 @@ object S3DataFrames extends S3ExampleBase {
       // write a DF
       def write(format: String): Path = {
         duration(s"write $format") {
-          save(df, new Path(generatedBase, format), format)
+          save(sourceData, new Path(generatedBase, format), format)
         }
       }
       // load a DF and verify it has the same number of rows as the generated DF
@@ -121,4 +121,27 @@ object S3DataFrames extends S3ExampleBase {
     0
   }
 
+  /**
+   * This is the source for the example; it is here to ensure it compiles
+   */
+  def example(sparkConf: SparkConf): Unit = {
+    val spark = SparkSession
+        .builder
+        .appName("S3DataFrames")
+        .config(sparkConf)
+        .getOrCreate()
+    import spark.implicits._
+    val numRows = 1000
+    val sourceData = spark.range(0, numRows).select($"id".as("l"), $"id".cast(StringType).as("s"))
+    val dest = "wasb://yourcontainer@youraccount.blob.core.windows.net/dataframes"
+    val orcFile = dest + "/data.orc"
+    sourceData.write.format("orc").save(orcFile)
+    // read it back
+    val orcData = spark.read.format("orc").load(orcFile)
+    // save it to parquet
+    val parquetFile = dest + "/data.parquet"
+    orcData.write.format("parquet").save(parquetFile)
+    spark.stop()
+
+  }
 }

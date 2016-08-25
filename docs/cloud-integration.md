@@ -1,8 +1,9 @@
 ---
 layout: global
+displayTitle: Integration with Cloud Infrastructures
 title: Integration with Cloud Infrastructures
+description: Introduction to cloud storage support in Apache Spark SPARK_VERSION_SHORT
 ---
-
 <!---
   Licensed under the Apache License, Version 2.0 (the "License");
   you may not use this file except in compliance with the License.
@@ -23,8 +24,9 @@ title: Integration with Cloud Infrastructures
 ## Introduction
 
 Apache Spark can use cloud object stores as a source or destination of data. It does so
-through filesystem connectors implemented in apache Hadoop. Provided the relevant libraries
-are on the classpath, a file can be referenced simply via its URL
+through filesystem connectors implemented in Apache Hadoop or provided by third-parties.
+Provided the relevant libraries are on the classpath, a file can be referenced simply
+via its URL
 
 ```scala
 sparkContext.textFile("s3a://landsat-pds/scene_list.gz").count()
@@ -43,9 +45,86 @@ numbers.saveAsTextFile("swift://testbucket.rackspace/counts")
 numbers.saveAsTextFile("wasb://testbucket@example.blob.core.windows.net/counts")
 ```
 
-While Object stores can be used as the source and destination of data, they cannot be
-used as a direct replacement for a cluster-wide filesystem, such as HDFS.
-This is important to know, as the fact they are easy to work with can be misleading.
+### Example: DataFrames
+
+DataFrames
+
+```scala
+val spark = SparkSession
+    .builder
+    .appName("S3DataFrames")
+    .config(sparkConf)
+    .getOrCreate()
+import spark.implicits._
+val numRows = 1000
+val sourceData = spark.range(0, numRows).select($"id".as("l"), $"id".cast(StringType).as("s"))
+val dest = "wasb://yourcontainer@youraccount.blob.core.windows.net/dataframes"
+val orcFile = dest + "/data.orc"
+// write the data
+sourceData.write.format("orc").save(orcFile)
+// read it back
+val orcData = spark.read.format("orc").load(orcFile)
+// save it to parquet
+val parquetFile = dest + "/data.parquet"
+orcData.write.format("parquet").save(parquetFile)
+spark.stop()
+```
+
+### Example: Spark Streaming and Cloud Storage
+
+Spark Streaming can monitor files added to object stores, by
+creating a `FileInputDStream` DStream monitoring a path under a bucket.
+
+```scala
+val sparkConf = new SparkConf()
+val ssc = new StreamingContext(sparkConf, Milliseconds(5000))
+try {
+  val lines = ssc.textFileStream("s3a://bucket/incoming")
+  val matches = lines.filter(_.endsWith("3"))
+  matches.print()
+  ssc.start()
+  ssc.awaitTermination()
+} finally {
+  ssc.stop(true)
+}
+```
+
+Be advised that the time to scan for new files is proportional to the number of files
+under the path —not the number of *new* files, and that it can become a slow operation.
+
+## Object stores and their library dependencies
+
+The different object stores supported by Spark depend on specific Hadoop versions,
+and require specific Hadoop JARs and dependent Java libraries on the classpath.
+
+### Amazon S3 with s3a://
+
+The "S3A" filesystem is a connector with Amazon S3, initially implemented in Hadoop 2.6, and
+considered ready for production use in Hadoop 2.7.
+
+The implementation is `hadoop-aws`, which is included in `$SPARK_HOME/jars`  when spark
+is built against Hadoop 2.7 or later.
+
+Dependencies: `amazon-aws-sdk` JAR (Hadoop 2.6 and 2.7); `amazon-s3-sdk` and `amazon-core-sdk`
+in Hadoop 2.8. *Warning*: The Amazon JARs have proven very brittle —the version of the Amazon
+libraries *must* match that which the Hadoop binaries were built against.
+
+### Amazon S3 with s3n://
+
+The "S3N" filesystem connector is a long-standing connector shipping with all versions of Hadoop 2.
+It uses the `jets3t` library to talk to HDFS; this must be on the classpath.
+
+S3N is essentially unmaintained by the Hadoop team and, on Hadoop 2.7+ is deprecated in
+favor of S3A. Only critical security issues are being fixed on S3N.
+
+### Microsoft Azure with wasb://
+
+The `wasb` filesystem connector is implemented in  the`hadoop-azure` JAR.
+It needs the `azure-storage` JAR on the classpath.
+
+### Openstack Swift
+
+The `swift` filesystem connector is implemented in `hadoop-openstack`.
 
 ## Cloud object stores are not filesystems
 
@@ -54,8 +133,9 @@ Object stores are not filesystems: they are not a hierarchical tree of directori
 The Hadoop filesystem APIs offer a filesystem API to the object stores, but underneath
 they are still object stores, [and the difference is significant](http://hadoop.apache.org/docs/current/hadoop-project-dist/hadoop-common/filesystem/introduction.html)
 
-Many behaviors expected of a filesystem are emulated in the object store APIs, but only
-imperfectly.
+While object stores can be used as the source and destination of data, they cannot be
+used as a direct replacement for a cluster-wide filesystem, such as HDFS.
+This is important to know, as the fact they are easy to work with can be misleading.
 
 ### Directory operations may be slow and not atomic
 
@@ -122,40 +202,8 @@ the call (or wrapper methods such as `FileSystem.exists(), isDirectory() or isFi
 Retain the object store as the final destination of persistent output, not as a replacement for
 HDFS.
 
-## Object stores and their library dependencies
 
-The different object stores supported by Spark depend on specific Java libraries.
-
-### Amazon S3 with s3a://
-
-The "S3A" filesystem is a connector with Amazon S3, initially implemented in Hadoop 2.6, and
-considered ready for production use in Hadoop 2.7.
-
-The implementation is `hadoop-aws`, which is included in the `spark-assembly` JAR when spark
-is built against Hadoop 2.7 or later.
-
-Dependencies: `amazon-aws-sdk` JAR (Hadoop 2.6 and 2.7); `amazon-s3-sdk` and `amazon-core-sdk`
-in Hadoop 2.8. *Warning*: The Amazon JARs have proven very brittle —the version of the Amazon
-libraries must match that which the Hadoop binaries were built against.
-
-### Amazon S3 with s3n://
-
-The "S3N" filesystem connector is a long-standing connector shipping with all versions of Hadoop 2.
-It uses the `jets3t` library to talk to HDFS; this must be on the classpath.
-
-Note that S3N is effectively unmaintained by the Hadoop team and, on Hadoop 2.7+ is deprecated in
-favor of S3A. Only critical security issues are being fixed on S3N.
-
-### Microsoft Azure with wasb://
-
-The `wasb` filesystem connector is implemented in `hadoop-aws` and built into the `spark-assembly`
-JAR. It needs the `azure-storage` JAR on the classpath.
-
-### Openstack Swift
-
-The `swift` filesystem connector is implemented in `hadoop-openstack`.
-
-## Testing Cloud integration
+## Testing Spark's cloud support
 
 The `spark-cloud` module contains tests which can run against the object stores. These verify
 functionality integration and performance.
@@ -391,17 +439,18 @@ For example, here is the test `NewHadoopAPI`.
   }
 ```
 
-
-It can be executed as part of the suite S3aIOSuite, by naming the suite in the `suite` maven property:
-```
-mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml -Dsuite=org.apache.spark.cloud.s3.S3aIOSuite
-```
-
-The specific test can be explicitly run by including the key in the `suite` property, with a space after
-the suite name:
+It can be executed as part of the suite `S3aIOSuite`, by setting the `suites` maven property to the classname
+of the test suite:
 
 ```
-mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml `-Dsuite=org.apache.spark.cloud.s3.S3aIOSuite NewHadoopAPI`
+mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml -Dsuites=org.apache.spark.cloud.s3.S3aIOSuite
+```
+
+The specific test can be explicitly run by including the key in the `suites` property
+after the suite name
+
+```
+mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml `-Dsuites=org.apache.spark.cloud.s3.S3aIOSuite NewHadoopAPI`
 ```
 
 This will run all tests in the `S3aIOSuite` suite whose name contains the string `NewHadoopAPI`;
@@ -414,16 +463,15 @@ under which all test suites should be executed.
 mvn test --pl cloud -Phadoop-2.7 -Dcloud.test.configuration.file=/home/developer/aws/cloud.xml `-DwildcardSuites=org.apache.spark.cloud.s3`
 ```
 
-
-(Note that an absolute path is used to refer to the test configuration file. If a relative
-path is supplied, it should be relative to the project base.)
+Note that an absolute path is used to refer to the test configuration file in these examples.
+If a relative path is supplied, it should be relative to the project base.
 
 ## Best practices for adding a new test
 
 1. Use `ctest()` to define a test case conditional on the suite being enabled.
 1. Give it a unique name which can be used to explicitly execute it from the build via the `suite` property.
-1. Give it a name useful in test reports/bug reports
-1. Give it a meaningful description.
+1. Give it a name useful in test reports/bug reports.
+1. Give it a meaningful description for logs and test reports..
 1. Test against multiple infrastructure instances.
 
 
