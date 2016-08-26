@@ -25,8 +25,8 @@ import org.apache.spark.cloud.CloudSuite
 
 /**
  * Trait for Azure tests. Because no Azure-specific API calls are made, this test suite
- * will compile against Hadoop versions which lack the hadoop-azure module. However, it
- * won't run.
+ * will compile against Hadoop versions which lack the hadoop-azure module. However, all
+ * the tests will be skipped.
  */
 private[cloud] trait AzureTestSetup extends CloudSuite {
 

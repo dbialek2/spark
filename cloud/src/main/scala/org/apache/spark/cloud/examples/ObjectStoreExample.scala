@@ -15,28 +15,27 @@
  * limitations under the License.
  */
 
-package org.apache.spark.cloud.s3.examples
+package org.apache.spark.cloud.examples
 
 import org.apache.spark.SparkConf
-import org.apache.spark.cloud.s3.S3AConstants
 import org.apache.spark.cloud.utils.{ObjectStoreOperations, TimeOperations}
+import org.apache.spark.internal.Logging
 
 /**
- * Base Class for examples working with S3.
+ * Trait for example applications working with object stores.
+ * Offers: entry point, some operations to add configuration parameters to spark contexts,
+ * and some methods to help parse arguments.
  */
-private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperations {
-  /**
-   * Default source of a public multi-MB CSV file.
-   */
-  val S3A_CSV_PATH_DEFAULT = "s3a://landsat-pds/scene_list.gz"
+private[cloud] trait ObjectStoreExample extends TimeOperations with ObjectStoreOperations
+    with Logging with Serializable {
 
   /**
-   * Exit code for a usage error.
+   * Exit code for a usage error: -2
    */
   val EXIT_USAGE = -2
 
   /**
-   * Exit code for a general purpose error
+   * Exit code for a general purpose error: -1
    */
   val EXIT_ERROR = -1
 
@@ -48,7 +47,6 @@ private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperat
   def main(args: Array[String]) {
     execute(action, args)
   }
-
 
   /**
    * Action to execute.
@@ -96,7 +94,7 @@ private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperat
   }
 
   /**
-   * Set a hadoop option in a spark configuration.
+   * Set a Hadoop option in a spark configuration.
    * @param sparkConf configuration to update
    * @param k key
    * @param v new value
@@ -124,6 +122,19 @@ private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperat
     System.exit(exitCode)
   }
 
+  def usage(): Int = {
+    logInfo(s"Usage: ${this.getClass.getCanonicalName} ${usageArgs()}")
+    EXIT_USAGE
+  }
+
+  /**
+   * List of the command args for the current example.
+   * @return a string (default: "")
+   */
+  protected def usageArgs(): String = {
+    ""
+  }
+
   protected def intArg(args: Array[String], index: Int, defVal: Int): Int = {
     if (args.length > index) args(index).toInt else defVal
   }
@@ -136,15 +147,10 @@ private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperat
   }
 
   /**
-   * Set the standard S3A Hadoop options to be used in test/examples
+   * Set the base spark/Hadoop options to be used in examples
    * @param sparkConf spark configuration to patch
    */
-  protected def applyS3AConfigOptions(sparkConf: SparkConf): Unit = {
-    // smaller block size to divide up work
-    hconf(sparkConf, S3AConstants.BLOCK_SIZE, 1 * 1024 * 1024)
-    hconf(sparkConf, S3AConstants.FAST_UPLOAD, "true")
-    // have a smaller buffer for more writers
-    hconf(sparkConf, S3AConstants.FAST_BUFFER_SIZE, 8192)
+  protected def applyObjectStoreConfigurationOptions(sparkConf: SparkConf): Unit = {
     // commit with v2 algorithm
     hconf(sparkConf, "mapreduce.fileoutputcommitter.algorithm.version", 2)
     hconf(sparkConf, "mapreduce.fileoutputcommitter.cleanup.skipped", "true")

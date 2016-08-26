@@ -15,19 +15,14 @@
  * limitations under the License.
  */
 
-package org.apache.spark.cloud.s3
+package org.apache.spark.cloud.azure
 
-import org.apache.hadoop.fs.Path
-
-import org.apache.spark.SparkConf
-import org.apache.spark.cloud.CloudSuite
 import org.apache.spark.cloud.common.FileGeneratorTests
-import org.apache.spark.cloud.s3.examples.S3FileGenerator
 
 /**
- * Test the `S3FileGenerator` entry point.
+ * Test the `FileGenerator` entry point.
  */
-private[cloud] class S3aFileGeneratorSuite extends FileGeneratorTests with S3aTestSetup {
+private[cloud] class AzureFileGeneratorSuite extends FileGeneratorTests with AzureTestSetup {
 
   init()
 
@@ -42,21 +37,4 @@ private[cloud] class S3aFileGeneratorSuite extends FileGeneratorTests with S3aTe
     cleanFilesystemInTeardown()
   }
 
-  ctest(
-    "FileGeneratorUsage",
-    "Execute the S3FileGenerator example with a bad argument; expect a failure") {
-    val conf = newSparkConf()
-    conf.setAppName("FileGenerator")
-    assert(-2 === S3FileGenerator.action(conf, Seq()))
-  }
-
-  override def generate(conf: SparkConf, destDir: Path,
-      startYear: Int, yearCount: Int, fileCount: Int, rowCount: Int): Int = {
-    val result = S3FileGenerator.action(conf, Seq(destDir,
-      startYear,
-      yearCount,
-      fileCount,
-      rowCount))
-    result
-  }
 }

@@ -122,8 +122,7 @@ private[cloud] class S3aCSVReadSuite extends CloudSuite with S3aTestSetup {
         results += sample
       }
     }
-    logInfo(
-      s"""$blocks blocks of size $blockSize;
+    logInfo( s"""$blocks blocks of size $blockSize;
          | total #of read operations $readOperations;
          | total read time=${toHuman(totalReadTime)};
          | ${totalReadTime / (blocks * blockSize)} ns/byte""".stripMargin)

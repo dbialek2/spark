@@ -64,4 +64,12 @@ object S3AConstants {
   val SEQUENTIAL_IO = "sequential"
   val NORMAL_IO = "normal"
   val RANDOM_IO = "random"
+
+  /**
+   * Default source of a public multi-MB CSV file.
+   */
+  val S3A_CSV_PATH_DEFAULT = "s3a://landsat-pds/scene_list.gz"
+
 }
+
+

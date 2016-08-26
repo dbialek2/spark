@@ -28,11 +28,14 @@ import org.apache.spark.cloud.s3.S3AConstants._
  * A line count example which has a default reference of a public Amazon S3
  * CSV .gz file in the absence of anything on the command line.
  */
-object S3LineCount extends S3ExampleBase {
+object S3LineCount extends S3ExampleSetup {
 
-  def usage(): Int = {
-    logInfo("Usage: org.apache.spark.cloud.s3.examples.S3LineCount [<source>] [<dest>]")
-    EXIT_USAGE
+  /**
+   * List of the command args for the current example.
+   * @return a string
+   */
+  override protected def usageArgs(): String = {
+    "[<source>] [<dest>]"
   }
 
   /**
@@ -60,9 +63,8 @@ object S3LineCount extends S3ExampleBase {
     val srcPath = new Path(srcURI)
     val _1MB = 1024 * 1024
     // smaller block size to divide up work
+    applyObjectStoreConfigurationOptions(sparkConf)
     val blockSize = _1MB
-    applyS3AConfigOptions(sparkConf)
-
     hconf(sparkConf, BLOCK_SIZE, blockSize)
     hconf(sparkConf, FAST_UPLOAD, "true")
     hconf(sparkConf, MULTIPART_SIZE, MIN_PERMITTED_MULTIPART_SIZE)

@@ -91,4 +91,37 @@ private[cloud] trait TimeOperations extends Logging {
   def nanos(): Long = {
     System.nanoTime()
   }
+
+  /**
+   * Time in milliseconds
+   * @return the current time
+   */
+  def now(): Long = {
+    System.currentTimeMillis()
+  }
+
+  /**
+   * Spin-wait for a predicate to evaluate to true, sleeping between probes
+   * and raising an exception if the condition is not met before the timeout.
+   * @param timeout time to wait
+   * @param interval sleep interval
+   * @param message exception message
+   * @param predicate predicate to evaluate
+   */
+  def await(
+      timeout: Long,
+      interval: Int = 500,
+      message: => String = "timeout")
+      (predicate: => Boolean): Unit = {
+    val endTime = now() + timeout
+    var succeeded = false;
+    while (!succeeded && now() < endTime) {
+      succeeded = predicate
+      if (!succeeded) {
+        Thread.sleep(interval)
+      }
+    }
+    require(succeeded, message)
+  }
+
 }

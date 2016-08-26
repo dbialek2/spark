@@ -15,19 +15,15 @@
  * limitations under the License.
  */
 
-package org.apache.spark.cloud.s3
+package org.apache.spark.cloud.azure
 
-import org.apache.hadoop.fs.Path
-
-import org.apache.spark.SparkConf
 import org.apache.spark.cloud.CloudSuite
-import org.apache.spark.cloud.common.FileGeneratorTests
-import org.apache.spark.cloud.s3.examples.S3FileGenerator
+import org.apache.spark.cloud.examples.CloudDataFrames
 
 /**
- * Test the `S3FileGenerator` entry point.
+ * Test the [S3DataFrames] logic
  */
-private[cloud] class S3aFileGeneratorSuite extends FileGeneratorTests with S3aTestSetup {
+private[cloud] class AzureDataframeSuite extends CloudSuite with AzureTestSetup {
 
   init()
 
@@ -42,21 +38,33 @@ private[cloud] class S3aFileGeneratorSuite extends FileGeneratorTests with S3aTe
     cleanFilesystemInTeardown()
   }
 
-  ctest(
-    "FileGeneratorUsage",
-    "Execute the S3FileGenerator example with a bad argument; expect a failure") {
+  ctest("DataFrames", "Execute the Data Frames example") {
     val conf = newSparkConf()
-    conf.setAppName("FileGenerator")
-    assert(-2 === S3FileGenerator.action(conf, Seq()))
+    conf.setAppName("DataFrames")
+    val destDir = testPath(filesystem, "dataframes")
+    val rowCount = 1000
+
+    assert(0 === new CloudDataFrames().action(conf,
+      Seq(destDir, rowCount))
+    )
+
+    // do a recursive listFiles
+    val recursiveListResults = duration("listFiles(recursive)") {
+      filesystem.listFiles(destDir, true)
+    }
+
+    val listing = toSeq(recursiveListResults)
+    var recursivelyListedFilesDataset = 0L
+    var recursivelyListedFiles = 0
+    duration("scan result list") {
+      listing.foreach{status =>
+        recursivelyListedFiles += 1
+        recursivelyListedFilesDataset += status.getLen
+        logInfo(s"${status.getPath}[${status.getLen}]")
+      }
+    }
+
+    logInfo(s"FileSystem $filesystem")
   }
 
-  override def generate(conf: SparkConf, destDir: Path,
-      startYear: Int, yearCount: Int, fileCount: Int, rowCount: Int): Int = {
-    val result = S3FileGenerator.action(conf, Seq(destDir,
-      startYear,
-      yearCount,
-      fileCount,
-      rowCount))
-    result
-  }
 }

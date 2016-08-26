@@ -26,6 +26,7 @@ import org.apache.hadoop.io.{NullWritable, Text}
 
 import org.apache.spark.internal.Logging
 import org.apache.spark.rdd.RDD
+import org.apache.spark.sql._
 
 /**
  * Extra Hadoop operations for object store integration.
@@ -102,30 +103,26 @@ private[cloud] trait ObjectStoreOperations extends Logging {
   }
 
   /**
-   * Spin-wait for a predicate to evaluate to true, sleeping between probes
-   * and raising an exception if the condition is not met before the timeout.
-   * @param timeout time to wait
-   * @param interval sleep interval
-   * @param message exception message
-   * @param predicate predicate to evaluate
+   * Save a dataframe in a specific format.
+   * @param df dataframe
+   * @param dest destination path
+   * @param format format
+   * @return the path the DF was saved to
    */
-  def await(timeout: Long, interval: Int = 500,
-      message: => String = "timeout")(predicate: => Boolean): Unit = {
-    val endTime = now() + timeout
-    var succeeded = false;
-    while (!succeeded && now() < endTime) {
-      succeeded = predicate
-      if (!succeeded) {
-        Thread.sleep(interval)
-      }
-    }
-    if (!succeeded) {
-      throw new Exception(message)
-    }
+  def save(df: DataFrame, dest: Path, format: String): Path = {
+    df.write.format(format).save(dest.toString)
+    dest
   }
 
-  def now(): Long = {
-    System.currentTimeMillis()
+  /**
+   * Load a dataframe.
+   * @param spark spark session
+   * @param source source path
+   * @param srcFormat format
+   * @return the loaded dataframe
+   */
+  def load(spark: SparkSession, source: Path, srcFormat: String): DataFrame = {
+    spark.read.format(srcFormat).load(source.toUri.toString)
   }
 }
 

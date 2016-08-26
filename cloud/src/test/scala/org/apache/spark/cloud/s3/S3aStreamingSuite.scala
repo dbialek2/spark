@@ -17,13 +17,11 @@
 
 package org.apache.spark.cloud.s3
 
-import org.apache.hadoop.fs.Path
-
 import org.apache.spark.cloud.CloudSuite
-import org.apache.spark.cloud.s3.examples.{S3DataFrames, S3Streaming}
+import org.apache.spark.cloud.s3.examples.S3Streaming
 
 /**
- * Test the [S3DataFrames] logic
+ * Test Streaming against S3A.
  */
 private[cloud] class S3aStreamingSuite extends CloudSuite with S3aTestSetup {
 
@@ -46,8 +44,7 @@ private[cloud] class S3aStreamingSuite extends CloudSuite with S3aTestSetup {
     val destDir = testPath(filesystem, "streaming")
     val rowCount = 1000
 
-    assert(0 === S3Streaming.action(conf, Seq(destDir, rowCount))
-    )
+    assert(0 === S3Streaming.action(conf, Seq(destDir, rowCount)))
   }
 
 }
