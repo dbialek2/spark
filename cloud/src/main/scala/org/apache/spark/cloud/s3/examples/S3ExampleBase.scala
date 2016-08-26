@@ -85,7 +85,7 @@ private[cloud] trait S3ExampleBase extends TimeOperations with ObjectStoreOperat
     } catch {
       case e: Exception =>
         logError(s"Failed to execute operation: $e", e)
-        // in case this is caused by classpath problems, dump it out
+        // in case this is caused by classpath problems, dump it out @ debug level
         logDebug(s"Classpath =\n${System.getProperty("java.class.path")}")
         exitCode = EXIT_ERROR
     }

@@ -39,10 +39,10 @@ Similarly, an RDD can be saved to an object store via `saveAsTextFile()`
 val numbers = sparkContext.parallelize(1 to 1000)
 // save to Amazon S3 (or compatible implementation)
 numbers.saveAsTextFile("s3a://testbucket/counts")
-// save to an OpenStack Swift implementation
-numbers.saveAsTextFile("swift://testbucket.rackspace/counts")
 // Save to Azure Object store
 numbers.saveAsTextFile("wasb://testbucket@example.blob.core.windows.net/counts")
+// save to an OpenStack Swift implementation
+numbers.saveAsTextFile("swift://testbucket.openstack1/counts")
 ```
 
 To summarize then: object stores can act as a source and destination of data, using exactly
@@ -52,7 +52,37 @@ There are some details however, a key one being: authentication.
 
 ## Authenticating with Object Store
 
+
+Apart from the special case of public read-only data, all object store buckets/containers
+require callers to authenticate themselves when making HTTP/HTTPS requests. For Spark
+applications to do this, the spark context must be configured with the authentication
+details of the object store.
+
+1. In a YARN cluster, this may be done automatically in the `core-site.xml` file.
+1. In Spark deployments in cloud infrastructure (for example, on Amazon EC2 or Azure),
+the authentication details may be automatically derived from information available to the VM.
+(This is only supported on recent versions of the Hadoop libraries, and varies across cloud
+infrastructures).
+1. Authentication details may be manually added to the spark configuration
+1. Alternatively, they can be programmatically added. *Important: never put authentication
+secrets in source code. They will be compromised*.
+
+Adding them to 
+
+
 ## Examples
+
+Because object stores are viewed by Spark as a filesystem, object stores can
+be used as the source or destination of any spark work, be it batch, SQL, DataFrame,
+Streaming or something else.
+
+What is needed is
+
+1. Use the full URI to refer to a bucket, including the prefix for the client-side library
+to use.
+1. Have the spark context configured with the authentication details of the object store.
+In a YARN cluster, this may be done in the `core-site.xml` file —so need 
+
 
 ### Example: DataFrames
 
@@ -134,6 +164,13 @@ It needs the `azure-storage` JAR on the classpath.
 ### Openstack Swift
 
 The `swift` filesystem connector is implemented in `hadoop-openstack`.
+
+
+## Getting Maximum Performance from cloud storage
+ 
+TODO: properties for splits, output committers, fadvise
+
+TODO: best practise in data layout?
 
 ## Cloud object stores are not filesystems
 

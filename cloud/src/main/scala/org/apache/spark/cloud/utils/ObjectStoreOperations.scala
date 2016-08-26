@@ -17,11 +17,8 @@
 
 package org.apache.spark.cloud.utils
 
-import java.io.InputStream
-
 import scala.reflect.ClassTag
 
-import com.amazonaws.util.StringInputStream
 import org.apache.commons.io.IOUtils
 import org.apache.hadoop.conf.Configuration
 import org.apache.hadoop.fs.{CommonConfigurationKeysPublic, FileSystem, Path, PathFilter, RemoteIterator}
@@ -95,25 +92,40 @@ private[cloud] trait ObjectStoreOperations extends Logging {
    * @param body string body
    */
   def put(path: Path, conf: Configuration, body: String): Unit = {
-    put(path, conf, new StringInputStream(body))
-  }
-
-  /**
-   * Put an input stream to the destination
-   * @param path path
-   * @param conf configuration to use when requesting the filesystem
-   * @param in input stream
-   */
-  def put(path: Path, conf: Configuration, in: InputStream): Unit = {
     val fs = FileSystem.get(path.toUri, conf)
     val out = fs.create(path, true)
     try {
-      IOUtils.copy(in, out)
+      IOUtils.write(body, out)
     } finally {
       IOUtils.closeQuietly(out)
-      IOUtils.closeQuietly(in)
     }
+  }
 
+  /**
+   * Spin-wait for a predicate to evaluate to true, sleeping between probes
+   * and raising an exception if the condition is not met before the timeout.
+   * @param timeout time to wait
+   * @param interval sleep interval
+   * @param message exception message
+   * @param predicate predicate to evaluate
+   */
+  def await(timeout: Long, interval: Int = 500,
+      message: => String = "timeout")(predicate: => Boolean): Unit = {
+    val endTime = now() + timeout
+    var succeeded = false;
+    while (!succeeded && now() < endTime) {
+      succeeded = predicate
+      if (!succeeded) {
+        Thread.sleep(interval)
+      }
+    }
+    if (!succeeded) {
+      throw new Exception(message)
+    }
+  }
+
+  def now(): Long = {
+    System.currentTimeMillis()
   }
 }
 

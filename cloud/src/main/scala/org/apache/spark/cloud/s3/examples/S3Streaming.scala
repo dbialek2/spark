@@ -79,12 +79,6 @@ object S3Streaming extends S3ExampleBase {
       }
       val body = builder.toString
 
-      // put a file into the generated directory
-      val textPath = new Path(generatedSubDir, "body1.txt")
-      duration(s"upload $textPath") {
-        put(textPath, hc, body)
-      }
-
       val matches = lines.filter(_.endsWith("3")).map(line => {
         sightings.add(1)
         line
@@ -94,24 +88,20 @@ object S3Streaming extends S3ExampleBase {
       ssc.start()
 
       Thread.sleep(2500)
+      // put a file into the generated directory
+      val textPath = new Path(generatedSubDir, "body1.txt")
+      duration(s"upload $textPath") {
+        put(textPath, hc, body)
+      }
       duration(s"rename $generatedSubDir to $renamedSubDir") {
         fs.rename(generatedSubDir, renamedSubDir)
       }
-
-      ssc.awaitTerminationOrTimeout(10000)
-      logInfo(s"Total number of lines ending in 3 sighted: ${sightings.value}")
-      logInfo(s"Total number of lines ending in 3 sighted: ${sightings.value}")
-      logInfo(s"FileSystem local stats: $fs")
-
-      val expected = rowCount/10
-      // require at least one line
-      if (sightings.value != expected) {
-        logError(s"Expected $expected matches, saw ${sightings.value}")
-        1
-      } else {
-        0
+      val expected = rowCount / 10
+      await(10000, 500, s"Expected $expected matches, saw ${sightings.value}") {
+        sightings.value == expected
       }
-
+      logInfo(s"FileSystem local stats: $fs")
+      0
     } finally {
       ssc.stop(true)
     }
