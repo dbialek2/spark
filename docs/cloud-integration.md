@@ -45,6 +45,15 @@ numbers.saveAsTextFile("swift://testbucket.rackspace/counts")
 numbers.saveAsTextFile("wasb://testbucket@example.blob.core.windows.net/counts")
 ```
 
+To summarize then: object stores can act as a source and destination of data, using exactly
+the same APIs to load and save data as one uses to work with data in HDFS or other filesystems.
+
+There are some details however, a key one being: authentication.
+
+## Authenticating with Object Store
+
+## Examples
+
 ### Example: DataFrames
 
 DataFrames
