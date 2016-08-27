@@ -274,8 +274,6 @@ class HistoryServer(
   }
 }
 
-
-
 /**
  * History system metrics independent of providers go in here.
  * @param owner owning instance
